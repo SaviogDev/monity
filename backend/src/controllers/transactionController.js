@@ -1,63 +1,122 @@
 import * as transactionService from '../services/transactionService.js';
 
-export const getAll = async (req, res, next) => {
+export const getTransactions = async (req, res, next) => {
   try {
-    const result = await transactionService.getAll(req.user._id, req.query);
-    res.status(200).json({ success: true, ...result });
+    const transactions = await transactionService.getAll({
+      userId: req.user._id,
+      filters: req.query,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: transactions,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-export const getSummary = async (req, res, next) => {
+export const getTransactionById = async (req, res, next) => {
   try {
-    const summary = await transactionService.getSummary(req.user._id, req.query);
-    res.status(200).json({ success: true, data: summary });
+    const transaction = await transactionService.getById({
+      userId: req.user._id,
+      transactionId: req.params.id,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: transaction,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-export const getById = async (req, res, next) => {
+export const createTransaction = async (req, res, next) => {
   try {
-    const transaction = await transactionService.getById(req.params.id, req.user._id);
-    res.status(200).json({ success: true, data: transaction });
+    const transaction = await transactionService.create({
+      userId: req.user._id,
+      payload: req.body,
+    });
+
+    const isRecurring = Boolean(req.body?.isRecurring);
+    const isInstallment = Boolean(req.body?.isInstallment);
+
+    let message = 'Transação criada com sucesso';
+
+    if (isRecurring) {
+      message = 'Transação recorrente criada com sucesso';
+    } else if (isInstallment) {
+      message = 'Transação parcelada criada com sucesso';
+    }
+
+    res.status(201).json({
+      success: true,
+      message,
+      data: transaction,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-export const create = async (req, res, next) => {
+export const updateTransaction = async (req, res, next) => {
   try {
-    const { description, amount, type, date, category, notes } = req.body;
-    const transaction = await transactionService.create(
-      { description, amount, type, date, category, notes },
-      req.user._id
-    );
-    res.status(201).json({ success: true, message: 'Transação criada com sucesso', data: transaction });
+    const transaction = await transactionService.update({
+      userId: req.user._id,
+      transactionId: req.params.id,
+      payload: req.body,
+    });
+
+    const isRecurring = Boolean(req.body?.isRecurring);
+    const isInstallment = Boolean(req.body?.isInstallment);
+
+    let message = 'Transação atualizada com sucesso';
+
+    if (isRecurring) {
+      message = 'Transação recorrente atualizada com sucesso';
+    } else if (isInstallment) {
+      message = 'Transação parcelada atualizada com sucesso';
+    }
+
+    res.status(200).json({
+      success: true,
+      message,
+      data: transaction,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-export const update = async (req, res, next) => {
+export const deleteTransaction = async (req, res, next) => {
   try {
-    const { description, amount, type, date, category, notes } = req.body;
-    const transaction = await transactionService.update(
-      req.params.id,
-      { description, amount, type, date, category, notes },
-      req.user._id
-    );
-    res.status(200).json({ success: true, message: 'Transação atualizada com sucesso', data: transaction });
+    const result = await transactionService.remove({
+      userId: req.user._id,
+      transactionId: req.params.id,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result,
+    });
   } catch (err) {
     next(err);
   }
 };
 
-export const remove = async (req, res, next) => {
+export const getTransactionSummary = async (req, res, next) => {
   try {
-    await transactionService.remove(req.params.id, req.user._id);
-    res.status(200).json({ success: true, message: 'Transação removida com sucesso' });
+    const summary = await transactionService.getSummary({
+      userId: req.user._id,
+      filters: req.query,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: summary,
+    });
   } catch (err) {
     next(err);
   }

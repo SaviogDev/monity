@@ -1,14 +1,13 @@
-const requiredEnvVars = ['MONGO_URI'];
+const requiredEnvVars = ['MONGO_URI', 'JWT_SECRET'];
 
-const validateEnv = () => {
-  const missing = requiredEnvVars.filter((key) => !process.env[key]);
+export default function validateEnv() {
+  const missingVars = requiredEnvVars.filter(
+    (envVar) => !process.env[envVar]
+  );
 
-  if (missing.length > 0) {
+  if (missingVars.length > 0) {
     throw new Error(
-      `❌ Variáveis de ambiente obrigatórias não definidas: ${missing.join(', ')}\n` +
-        `   Verifique o arquivo .env baseado no .env.example`
+      `Variáveis de ambiente ausentes: ${missingVars.join(', ')}`
     );
   }
-};
-
-export default validateEnv;
+}

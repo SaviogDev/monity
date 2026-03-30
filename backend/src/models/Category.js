@@ -38,9 +38,9 @@ const categorySchema = new mongoose.Schema(
   }
 );
 
-// Um usuário não pode ter duas categorias com o mesmo nome e tipo
 categorySchema.index({ name: 1, type: 1, user: 1 }, { unique: true });
 
-const Category = mongoose.model('Category', categorySchema);
+const Category =
+  mongoose.models.Category || mongoose.model('Category', categorySchema);
 
 export default Category;

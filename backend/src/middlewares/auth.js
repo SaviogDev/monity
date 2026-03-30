@@ -14,14 +14,14 @@ const auth = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.id);
+    const user = await User.findById(decoded.id).select('-password');
+
     if (!user) {
       const error = new Error('Usuário não encontrado');
       error.statusCode = 401;
       return next(error);
     }
 
-    // Disponibiliza o usuário para todos os controllers seguintes
     req.user = user;
     next();
   } catch (err) {
@@ -32,6 +32,7 @@ const auth = async (req, res, next) => {
       err.message = 'Token expirado';
       err.statusCode = 401;
     }
+
     next(err);
   }
 };

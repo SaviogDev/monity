@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Senha é obrigatória'],
       minlength: [6, 'Senha deve ter no mínimo 6 caracteres'],
-      select: false, // nunca retorna o hash por padrão
+      select: false,
     },
   },
   {
@@ -29,18 +29,17 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Hash da senha antes de salvar
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Método de instância para comparar senhas
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-const User = mongoose.model('User', userSchema);
+const User =
+  mongoose.models.User || mongoose.model('User', userSchema);
 
 export default User;

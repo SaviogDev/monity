@@ -30,7 +30,7 @@ export const login = async (req, res, next) => {
   }
 };
 
-export const me = (req, res) => {
+export const getMe = (req, res) => {
   res.status(200).json({
     success: true,
     data: {
@@ -41,4 +41,43 @@ export const me = (req, res) => {
       },
     },
   });
+};
+
+export const updateMe = async (req, res, next) => {
+  try {
+    const { name } = req.body;
+
+    const result = await authService.updateMe({
+      userId: req.user._id,
+      name,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Perfil atualizado com sucesso',
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updatePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    const result = await authService.updatePassword({
+      userId: req.user._id,
+      currentPassword,
+      newPassword,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Senha atualizada com sucesso',
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
 };

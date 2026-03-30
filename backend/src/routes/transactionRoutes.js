@@ -1,24 +1,30 @@
-import { Router } from 'express';
-import {
-  getAll,
-  getById,
-  getSummary,
-  create,
-  update,
-  remove,
-} from '../controllers/transactionController.js';
+import express from 'express';
 import auth from '../middlewares/auth.js';
+import {
+  getTransactions,
+  getTransactionSummary,
+  getTransactionById,
+  createTransaction,
+  updateTransaction,
+  deleteTransaction,
+} from '../controllers/transactionController.js';
 
-const router = Router();
+const router = express.Router();
 
-// Todas as rotas de transações exigem autenticação
 router.use(auth);
 
-router.get('/', getAll);
-router.get('/summary', getSummary);
-router.get('/:id', getById);
-router.post('/', create);
-router.put('/:id', update);
-router.delete('/:id', remove);
+/**
+ * READ
+ */
+router.get('/summary', getTransactionSummary);
+router.get('/', getTransactions);
+router.get('/:id', getTransactionById);
+
+/**
+ * WRITE
+ */
+router.post('/', createTransaction);
+router.put('/:id', updateTransaction);
+router.delete('/:id', deleteTransaction);
 
 export default router;
