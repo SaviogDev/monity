@@ -7,9 +7,8 @@ import {
 
 const router = express.Router();
 
-router.use(auth);
-
-router.get('/', getInvoicesController);
-router.get('/:cardId/:monthKey', getInvoiceByCardAndMonthController);
+// O middleware 'auth' vai injetado diretamente em cada rota (padrão mais seguro)
+router.get('/', auth, getInvoicesController);
+router.get('/:cardId/:monthKey', auth, getInvoiceByCardAndMonthController);
 
 export default router;

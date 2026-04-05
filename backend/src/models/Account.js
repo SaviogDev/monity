@@ -36,6 +36,11 @@ const accountSchema = new mongoose.Schema(
       default: 0,
       min: [0, 'Saldo inicial não pode ser negativo'],
     },
+    // NOVO: Campo para armazenar o saldo em tempo real
+    currentBalance: {
+      type: Number,
+      default: 0,
+    },
     isActive: {
       type: Boolean,
       default: true,
@@ -48,7 +53,14 @@ const accountSchema = new mongoose.Schema(
 
 accountSchema.index({ user: 1, name: 1 });
 
-const Account =
-  mongoose.models.Account || mongoose.model('Account', accountSchema);
+// NOVO: Gatilho para preencher o saldo atual quando a conta é criada
+accountSchema.pre('save', function (next) {
+  if (this.isNew && this.currentBalance === 0) {
+    this.currentBalance = this.initialBalance || 0;
+  }
+  next();
+});
+
+const Account = mongoose.models.Account || mongoose.model('Account', accountSchema);
 
 export default Account;

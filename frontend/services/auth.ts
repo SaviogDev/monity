@@ -11,24 +11,31 @@ export interface AuthUser {
   email: string;
 }
 
+interface RawAuthUser {
+  id?: string;
+  _id?: string;
+  name?: string;
+  email?: string;
+}
+
 interface AuthPayload {
   token: string;
-  user: AuthUser;
+  user: RawAuthUser;
 }
 
 interface AuthResponse {
   success: boolean;
-  data: AuthPayload;
+  data?: AuthPayload | null;
   message?: string;
 }
 
 interface MePayload {
-  user: AuthUser;
+  user: RawAuthUser;
 }
 
 interface MeResponse {
   success: boolean;
-  data: MePayload;
+  data?: MePayload | null;
   message?: string;
 }
 
@@ -38,24 +45,24 @@ interface PasswordPayload {
 
 interface PasswordResponse {
   success: boolean;
-  data: PasswordPayload;
+  data?: PasswordPayload | null;
   message?: string;
 }
 
-interface LoginInput {
+export interface LoginInput {
   email: string;
   password: string;
 }
 
-interface RegisterInput extends LoginInput {
+export interface RegisterInput extends LoginInput {
   name: string;
 }
 
-interface UpdateMeInput {
+export interface UpdateMeInput {
   name: string;
 }
 
-interface UpdatePasswordInput {
+export interface UpdatePasswordInput {
   currentPassword: string;
   newPassword: string;
 }
@@ -64,56 +71,86 @@ export const getToken = getStoredToken;
 export const setToken = setStoredToken;
 export const clearToken = clearStoredToken;
 
-export async function login(payload: LoginInput) {
+function normalizeUser(user?: RawAuthUser | null): AuthUser {
+  return {
+    id: String(user?.id || user?._id || ''),
+    name: String(user?.name || ''),
+    email: String(user?.email || ''),
+  };
+}
+
+function normalizePasswordPayload(payload?: PasswordPayload | null): PasswordPayload {
+  return {
+    message: String(payload?.message || ''),
+  };
+}
+
+export async function login(payload: LoginInput): Promise<AuthPayload> {
   const response = await apiJson<AuthResponse>('/auth/login', {
     method: 'POST',
     auth: false,
     body: JSON.stringify(payload),
   });
 
-  if (response.data?.token) {
-    setToken(response.data.token);
+  const data: AuthPayload = {
+    token: String(response.data?.token || ''),
+    user: normalizeUser(response.data?.user),
+  };
+
+  if (data.token) {
+    setToken(data.token);
   }
 
-  return response.data;
+  return data;
 }
 
-export async function register(payload: RegisterInput) {
+export async function register(payload: RegisterInput): Promise<AuthPayload> {
   const response = await apiJson<AuthResponse>('/auth/register', {
     method: 'POST',
     auth: false,
     body: JSON.stringify(payload),
   });
 
-  if (response.data?.token) {
-    setToken(response.data.token);
+  const data: AuthPayload = {
+    token: String(response.data?.token || ''),
+    user: normalizeUser(response.data?.user),
+  };
+
+  if (data.token) {
+    setToken(data.token);
   }
 
-  return response.data;
+  return data;
 }
 
-export async function fetchMe() {
+export async function fetchMe(): Promise<AuthUser> {
   const response = await apiJson<MeResponse>('/auth/me', {
     method: 'GET',
   });
 
-  return response.data.user;
+  return normalizeUser(response.data?.user);
 }
 
-export async function updateMe(payload: UpdateMeInput) {
+export async function updateMe(payload: UpdateMeInput): Promise<AuthUser> {
   const response = await apiJson<MeResponse>('/auth/me', {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
 
-  return response.data.user;
+  return normalizeUser(response.data?.user);
 }
 
-export async function updatePassword(payload: UpdatePasswordInput) {
+export async function updatePassword(
+  payload: UpdatePasswordInput
+): Promise<PasswordPayload> {
   const response = await apiJson<PasswordResponse>('/auth/password', {
     method: 'PUT',
     body: JSON.stringify(payload),
   });
 
-  return response.data;
+  return normalizePasswordPayload(response.data);
+}
+
+export function logout() {
+  clearToken();
 }

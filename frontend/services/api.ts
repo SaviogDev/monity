@@ -1,6 +1,36 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const RAW_API_URL = process.env.NEXT_PUBLIC_API_URL?.trim() || 'http://localhost:5000';
 
-export { API_URL };
+function normalizeApiBaseUrl(value: string) {
+  const trimmed = value.replace(/\/+$/, '');
+
+  if (trimmed.endsWith('/api')) {
+    return trimmed;
+  }
+
+  return `${trimmed}/api`;
+}
+
+function normalizePath(path: string) {
+  if (!path) return '';
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+function buildApiUrl(path: string) {
+  const baseUrl = normalizeApiBaseUrl(RAW_API_URL);
+  const normalizedPath = normalizePath(path);
+
+  if (normalizedPath === '/api') {
+    return baseUrl;
+  }
+
+  if (normalizedPath.startsWith('/api/')) {
+    return `${baseUrl}${normalizedPath.slice(4)}`;
+  }
+
+  return `${baseUrl}${normalizedPath}`;
+}
+
+export const API_URL = normalizeApiBaseUrl(RAW_API_URL);
 
 export class ApiError extends Error {
   status: number;
@@ -20,17 +50,17 @@ export class ApiError extends Error {
 
 export function getToken() {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('monity_token');
+  return window.localStorage.getItem('monity_token');
 }
 
 export function setToken(token: string) {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('monity_token', token);
+  window.localStorage.setItem('monity_token', token);
 }
 
 export function clearToken() {
   if (typeof window === 'undefined') return;
-  localStorage.removeItem('monity_token');
+  window.localStorage.removeItem('monity_token');
 }
 
 type ApiRequestOptions = RequestInit & {
@@ -39,14 +69,50 @@ type ApiRequestOptions = RequestInit & {
 };
 
 function extractErrorMessage(data: unknown, fallback: string) {
-  if (data && typeof data === 'object' && 'message' in data) {
-    const message = (data as { message?: unknown }).message;
-    if (typeof message === 'string' && message.trim()) {
-      return message;
+  if (typeof data === 'string' && data.trim()) {
+    return data;
+  }
+
+  if (data && typeof data === 'object') {
+    if ('message' in data) {
+      const message = (data as { message?: unknown }).message;
+      if (typeof message === 'string' && message.trim()) {
+        return message;
+      }
+    }
+
+    if ('error' in data) {
+      const error = (data as { error?: unknown }).error;
+      if (typeof error === 'string' && error.trim()) {
+        return error;
+      }
     }
   }
 
   return fallback;
+}
+
+async function parseResponseBody(response: Response) {
+  if (response.status === 204 || response.status === 205) {
+    return null;
+  }
+
+  const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+
+  if (contentType.includes('application/json')) {
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const text = await response.text();
+    return text || null;
+  } catch {
+    return null;
+  }
 }
 
 export async function apiRequest(
@@ -54,10 +120,15 @@ export async function apiRequest(
   { auth = true, expectJson = true, ...options }: ApiRequestOptions = {}
 ) {
   const headers = new Headers(options.headers || {});
-  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   if (!isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
+  }
+
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/json');
   }
 
   if (auth) {
@@ -73,7 +144,7 @@ export async function apiRequest(
   let response: Response;
 
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    response = await fetch(buildApiUrl(path), {
       ...options,
       headers,
     });
@@ -85,21 +156,7 @@ export async function apiRequest(
     );
   }
 
-  if (!expectJson) {
-    if (!response.ok) {
-      throw new ApiError(`Erro ${response.status}`, response.status);
-    }
-
-    return response;
-  }
-
-  let data: unknown = null;
-
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
+  const data = await parseResponseBody(response);
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -111,6 +168,10 @@ export async function apiRequest(
       response.status,
       data
     );
+  }
+
+  if (!expectJson) {
+    return response;
   }
 
   return data;
@@ -128,6 +189,15 @@ export function toQueryString(params: Record<string, unknown>) {
 
   Object.entries(params).forEach(([key, value]) => {
     if (value === undefined || value === null || value === '') return;
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item === undefined || item === null || item === '') return;
+        searchParams.append(key, String(item));
+      });
+      return;
+    }
+
     searchParams.set(key, String(value));
   });
 

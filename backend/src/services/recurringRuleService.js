@@ -2,6 +2,7 @@ import RecurringRule from '../models/RecurringRule.js';
 import Category from '../models/Category.js';
 import Account from '../models/Account.js';
 import CreditCard from '../models/CreditCard.js';
+import Transaction from '../models/Transaction.js'; // Importação do Model de Transação adicionada
 
 function normalizeRecurringRulePayload(payload) {
   return {
@@ -271,4 +272,101 @@ export async function getRecurringRuleById(userId, ruleId) {
   }
 
   return rule;
+}
+
+/* ================= MOTOR DE RECORRÊNCIA (O OPERÁRIO) ================= */
+
+/**
+ * processPendingRules varre o banco gerando transações automáticas
+ * para todas as regras vencidas até a data alvo.
+ * @param {Date} targetDate Data limite para processamento (default: hoje)
+ */
+export async function processPendingRules(targetDate = new Date()) {
+  // Ajusta a data limite para o final do dia, garantindo que pegue tudo de hoje
+  const limitDate = new Date(targetDate);
+  limitDate.setHours(23, 59, 59, 999);
+
+  // Busca todas as regras ativas, com autoGenerate ligado e que estão atrasadas ou vencendo hoje
+  const pendingRules = await RecurringRule.find({
+    isActive: true,
+    autoGenerate: true,
+    nextExecutionDate: { $lte: limitDate },
+  });
+
+  const results = { processedRules: 0, transactionsCreated: 0, errors: 0, details: [] };
+
+  for (const rule of pendingRules) {
+    try {
+      let currentExecutionDate = new Date(rule.nextExecutionDate);
+      let isRuleActive = rule.isActive;
+      let ruleLastExecution = rule.lastExecutionDate;
+
+      // Loop de catch-up: Se o sistema ficou 3 meses offline, ele gera as 3 transações devidas
+      while (currentExecutionDate <= limitDate && isRuleActive) {
+        
+        // 1. Monta e cria a Transação Real
+        const transactionPayload = {
+          user: rule.user,
+          description: rule.description,
+          type: rule.type,
+          amount: rule.amount,
+          category: rule.category,
+          account: rule.account,
+          creditCard: rule.creditCard,
+          paymentMethod: rule.paymentMethod,
+          transactionDate: new Date(currentExecutionDate), // Fixa a data exata da parcela
+          status: 'confirmed', // Lançamentos automáticos já nascem confirmados
+          source: 'recurrence',
+          notes: `Lançamento automático de recorrência. ${rule.notes || ''}`.trim(),
+          isRecurring: true,
+          isInstallment: false,
+          recurrenceRule: rule._id // Vincula a transação à regra mãe (opcional/útil para rastreio)
+        };
+
+        await Transaction.create(transactionPayload);
+        results.transactionsCreated += 1;
+        ruleLastExecution = new Date(currentExecutionDate);
+
+        // 2. Calcula qual será a PRÓXIMA data de execução
+        if (rule.frequency === 'daily') {
+          currentExecutionDate.setDate(currentExecutionDate.getDate() + 1);
+        } else if (rule.frequency === 'weekly') {
+          currentExecutionDate.setDate(currentExecutionDate.getDate() + 7);
+        } else if (rule.frequency === 'biweekly') {
+          currentExecutionDate.setDate(currentExecutionDate.getDate() + 14);
+        } else if (rule.frequency === 'monthly') {
+          currentExecutionDate = addMonthsSafe(currentExecutionDate, 1, rule.dayOfMonth);
+        } else if (rule.frequency === 'quarterly') {
+          currentExecutionDate = addMonthsSafe(currentExecutionDate, 3, rule.dayOfMonth);
+        } else if (rule.frequency === 'yearly') {
+          currentExecutionDate = addMonthsSafe(currentExecutionDate, 12, rule.dayOfMonth);
+        }
+
+        // 3. Verifica se a próxima data ultrapassou a data de término (endDate)
+        if (rule.endDate) {
+          const endDateLimit = new Date(rule.endDate);
+          endDateLimit.setHours(23, 59, 59, 999);
+          if (currentExecutionDate > endDateLimit) {
+            isRuleActive = false; // A regra encerrou o ciclo de vida
+          }
+        }
+      }
+
+      // 4. Salva as atualizações na Regra (novas datas e status)
+      rule.lastExecutionDate = ruleLastExecution;
+      rule.nextExecutionDate = currentExecutionDate;
+      rule.isActive = isRuleActive;
+      await rule.save();
+
+      results.processedRules += 1;
+      results.details.push({ ruleId: rule._id, status: 'success' });
+
+    } catch (err) {
+      console.error(`Erro no motor ao processar a regra ${rule._id}:`, err);
+      results.errors += 1;
+      results.details.push({ ruleId: rule._id, status: 'error', message: err.message });
+    }
+  }
+
+  return results;
 }

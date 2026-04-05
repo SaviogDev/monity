@@ -25,8 +25,7 @@ export interface CategoryPayload {
 
 interface CategoryListResponse {
   success: boolean;
-  data?: Category[] | { data?: Category[]; categories?: Category[] };
-  categories?: Category[];
+  data?: Category[];
   message?: string;
 }
 
@@ -36,19 +35,12 @@ interface MutationResponse<T> {
   message?: string;
 }
 
-function normalizeCategoriesResponse(response: CategoryListResponse) {
-  const raw =
-    Array.isArray(response.data)
-      ? response.data
-      : Array.isArray(response.data?.data)
-      ? response.data.data
-      : Array.isArray(response.data?.categories)
-      ? response.data.categories
-      : Array.isArray(response.categories)
-      ? response.categories
-      : [];
+function normalizeCategoriesResponse(response: CategoryListResponse): Category[] {
+  if (!Array.isArray(response.data)) {
+    return [];
+  }
 
-  return [...raw].sort((a, b) => {
+  return [...response.data].sort((a, b) => {
     if (a.type !== b.type) {
       return a.type === 'income' ? -1 : 1;
     }
@@ -57,8 +49,9 @@ function normalizeCategoriesResponse(response: CategoryListResponse) {
   });
 }
 
-export async function fetchCategories(filters: CategoryFilters = {}) {
+export async function fetchCategories(filters: CategoryFilters = {}): Promise<Category[]> {
   const query = toQueryString(filters);
+
   const response = await apiJson<CategoryListResponse>(`/categories${query}`, {
     method: 'GET',
   });

@@ -1,24 +1,12 @@
 import { Router } from 'express';
-import auth from '../middlewares/auth.js';
-import {
-  createRecurringRuleController,
-  getRecurringRuleByIdController,
-  getRecurringRulesController,
-} from '../controllers/recurringRuleController.js';
+import * as recurringRuleController from '../controllers/recurringRuleController.js';
+import auth from '../middlewares/auth.js'; 
 
 const router = Router();
 
-router.use(auth);
-
-/**
- * READ
- */
-router.get('/', getRecurringRulesController);
-router.get('/:id', getRecurringRuleByIdController);
-
-/**
- * WRITE
- */
-router.post('/', createRecurringRuleController);
+router.post('/process', auth, recurringRuleController.processRecurrences);
+router.post('/', auth, recurringRuleController.createRule);
+router.get('/', auth, recurringRuleController.getRules);
+router.get('/:id', auth, recurringRuleController.getRuleById);
 
 export default router;

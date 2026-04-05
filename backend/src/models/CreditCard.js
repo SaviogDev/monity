@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 
+const DEFAULT_CARD_COLOR = '#2563EB';
+
 const creditCardSchema = new mongoose.Schema(
   {
     user: {
@@ -17,13 +19,29 @@ const creditCardSchema = new mongoose.Schema(
     bankCode: {
       type: String,
       trim: true,
-      lowercase: true,
       default: null,
     },
     limit: {
       type: Number,
-      default: null,
+      default: 0,
       min: [0, 'O limite não pode ser negativo'],
+    },
+    availableLimit: {
+      type: Number,
+      default: 0,
+      min: [0, 'O limite disponível não pode ser negativo'],
+      validate: {
+        validator(value) {
+          const totalLimit = Number.isFinite(this.limit) ? this.limit : 0;
+          return value <= totalLimit + 0.000001;
+        },
+        message: 'O limite disponível não pode ser maior que o limite total',
+      },
+    },
+    linkedAccount: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account',
+      default: null,
     },
     closingDay: {
       type: Number,
@@ -40,7 +58,7 @@ const creditCardSchema = new mongoose.Schema(
     color: {
       type: String,
       trim: true,
-      default: '#111827',
+      default: DEFAULT_CARD_COLOR,
     },
     isActive: {
       type: Boolean,
@@ -49,12 +67,26 @@ const creditCardSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    versionKey: false,
   }
 );
 
 creditCardSchema.index({ user: 1, name: 1 });
 
-const CreditCard =
-  mongoose.models.CreditCard || mongoose.model('CreditCard', creditCardSchema);
+creditCardSchema.pre('validate', function (next) {
+  const normalizedLimit = Number.isFinite(this.limit) ? this.limit : 0;
+
+  if (this.isNew && (this.availableLimit === undefined || this.availableLimit === null || this.availableLimit === 0)) {
+    this.availableLimit = normalizedLimit;
+  }
+
+  if (!Number.isFinite(this.availableLimit)) {
+    this.availableLimit = 0;
+  }
+
+  next();
+});
+
+const CreditCard = mongoose.models.CreditCard || mongoose.model('CreditCard', creditCardSchema);
 
 export default CreditCard;

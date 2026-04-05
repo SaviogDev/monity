@@ -1,603 +1,668 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import {
-  clearToken,
-  fetchMe,
-  updateMe,
-  updatePassword,
-  type AuthUser,
-} from '../../../services/auth';
-import {
-  ArrowRight,
-  ArrowUpDown,
-  Loader2,
-  LogOut,
-  Mail,
-  Shield,
-  Tags,
-  User,
-  Wallet,
-  Lock,
+  AtSign,
+  Bell,
+  Calendar,
   CheckCircle2,
-  AlertCircle,
+  ChevronRight,
+  Crown,
+  Fingerprint,
+  Lock,
+  LogOut,
+  Settings,
+  Shield,
+  Smartphone,
+  Sparkles,
+  User,
+  WalletCards,
+  Eye,
+  FileBarChart2,
+  BadgeCheck,
 } from 'lucide-react';
+
+import { clearToken, fetchMe } from '@/services/auth';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.08 },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 18 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { type: 'spring', stiffness: 260, damping: 20 },
+  },
+};
+
+type ProfileUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+type PreferencesState = {
+  notifications: boolean;
+  weeklyReport: boolean;
+  hideBalances: boolean;
+};
+
+type PreferenceItem = {
+  id: keyof PreferencesState;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  title: string;
+  desc: string;
+  active: boolean;
+};
+
+type QuickAction = {
+  id: string;
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+};
+
+function getInitials(name?: string) {
+  if (!name) return 'MO';
+
+  const parts = name
+    .trim()
+    .split(' ')
+    .filter(Boolean);
+
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function Switch({
+  checked,
+  onClick,
+}: {
+  checked: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex h-8 w-14 items-center rounded-full px-1 transition-all ${
+        checked
+          ? 'bg-blue-600 shadow-inner shadow-blue-900/20'
+          : 'bg-slate-200'
+      }`}
+    >
+      <div
+        className={`h-6 w-6 rounded-full bg-white shadow-md transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-0'
+        }`}
+      />
+    </button>
+  );
+}
 
 export default function ProfilePage() {
   const router = useRouter();
 
-  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pageError, setPageError] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [user, setUser] = useState<ProfileUser | null>(null);
 
-  const [profileName, setProfileName] = useState('');
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
-  const [profileError, setProfileError] = useState<string | null>(null);
-
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-
-  const getErrorMessage = (err: unknown, fallback: string) => {
-    if (err instanceof Error && err.message.trim()) {
-      return err.message;
-    }
-
-    return fallback;
-  };
-
-  const shouldLogout = (message: string) => {
-    const normalized = message.toLowerCase();
-
-    return (
-      normalized.includes('token') ||
-      normalized.includes('sessão') ||
-      normalized.includes('session') ||
-      normalized.includes('unauthorized') ||
-      normalized.includes('não autenticado') ||
-      normalized.includes('nao autenticado') ||
-      normalized.includes('401')
-    );
-  };
-
-  const handleAuthError = (err: unknown, fallbackMessage: string) => {
-    const message = getErrorMessage(err, fallbackMessage);
-
-    if (shouldLogout(message)) {
-      clearToken();
-      router.replace('/login');
-      return true;
-    }
-
-    return false;
-  };
-
-  const loadProfile = async () => {
-    try {
-      setPageError(null);
-
-      const me = await fetchMe();
-      setUser(me);
-      setProfileName(me.name);
-    } catch (err) {
-      console.error('Erro ao carregar perfil:', err);
-
-      const redirected = handleAuthError(err, 'Não foi possível carregar o perfil.');
-      if (!redirected) {
-        setPageError('Não foi possível carregar os dados do perfil.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [preferences, setPreferences] = useState<PreferencesState>({
+    notifications: true,
+    weeklyReport: true,
+    hideBalances: false,
+  });
 
   useEffect(() => {
-    let isMounted = true;
-
-    const bootstrap = async () => {
+    async function loadUser() {
       try {
-        const me = await fetchMe();
+        setLoading(true);
 
-        if (!isMounted) return;
+        const data = await fetchMe();
 
-        setUser(me);
-        setProfileName(me.name);
-        setPageError(null);
-      } catch (err) {
-        console.error('Erro ao carregar perfil:', err);
-
-        const message = getErrorMessage(err, 'Não foi possível carregar o perfil.');
-
-        if (shouldLogout(message)) {
-          clearToken();
-          router.replace('/login');
-          return;
-        }
-
-        if (isMounted) {
-          setPageError('Não foi possível carregar os dados do perfil.');
-        }
+        setUser({
+          id: data.id,
+          name: data.name,
+          email: data.email,
+        });
+      } catch (error) {
+        clearToken();
+        toast.error('Sessão expirada. Faça login novamente.');
+        router.replace('/login');
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
-    };
+    }
 
-    bootstrap();
-
-    return () => {
-      isMounted = false;
-    };
+    void loadUser();
   }, [router]);
 
-  const initials = useMemo(() => {
-    if (!user?.name) return 'U';
+  const memberSinceLabel = useMemo(() => {
+    return new Date().getFullYear().toString();
+  }, []);
 
-    return user.name
-      .trim()
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join('');
-  }, [user]);
+  const userFirstName = useMemo(() => {
+    if (!user?.name) return 'usuário';
+    return user.name.trim().split(' ')[0];
+  }, [user?.name]);
 
-  const firstName = useMemo(() => {
-    return user?.name?.split(' ')[0] || 'Usuário';
-  }, [user]);
+  function handleTogglePreference(key: keyof PreferencesState) {
+    setPreferences((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
 
-  const hasProfileChanges = useMemo(() => {
-    return !!user && profileName.trim() !== user.name.trim();
-  }, [profileName, user]);
+    toast.success('Preferência atualizada.');
+  }
 
-  const handleLogout = () => {
-    clearToken();
-    router.replace('/login');
-  };
-
-  const handleProfileSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-
-    setProfileSuccess(null);
-    setProfileError(null);
-
-    const trimmedName = profileName.trim();
-
-    if (!trimmedName) {
-      setProfileError('Informe seu nome.');
-      return;
-    }
-
-    if (!user) {
-      setProfileError('Usuário não carregado.');
-      return;
-    }
-
-    if (trimmedName === user.name.trim()) {
-      setProfileSuccess('Nenhuma alteração foi feita no nome.');
-      return;
-    }
-
+  async function handleLogout() {
     try {
-      setProfileLoading(true);
-
-      const updatedUser = await updateMe({ name: trimmedName });
-
-      setUser(updatedUser);
-      setProfileName(updatedUser.name);
-      setProfileSuccess('Nome atualizado com sucesso.');
-    } catch (err) {
-      console.error('Erro ao atualizar perfil:', err);
-
-      const redirected = handleAuthError(err, 'Não foi possível atualizar o perfil.');
-      if (!redirected) {
-        setProfileError(getErrorMessage(err, 'Não foi possível atualizar o perfil.'));
-      }
+      setLoggingOut(true);
+      clearToken();
+      toast.success('Sessão encerrada com segurança.');
+      router.replace('/login');
     } finally {
-      setProfileLoading(false);
+      setLoggingOut(false);
     }
-  };
+  }
 
-  const handlePasswordSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const preferenceItems: PreferenceItem[] = [
+    {
+      id: 'notifications',
+      icon: Bell,
+      title: 'Notificações inteligentes',
+      desc: 'Alertas importantes de vencimentos, movimentações e eventos da conta.',
+      active: preferences.notifications,
+    },
+    {
+      id: 'weeklyReport',
+      icon: FileBarChart2,
+      title: 'Resumo semanal',
+      desc: 'Receber um panorama resumido do seu comportamento financeiro.',
+      active: preferences.weeklyReport,
+    },
+    {
+      id: 'hideBalances',
+      icon: Eye,
+      title: 'Ocultar saldos',
+      desc: 'Esconder valores da dashboard por padrão para mais privacidade.',
+      active: preferences.hideBalances,
+    },
+  ];
 
-    setPasswordSuccess(null);
-    setPasswordError(null);
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError('Preencha todos os campos de senha.');
-      return;
-    }
-
-    if (newPassword.length < 6) {
-      setPasswordError('A nova senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('A confirmação da nova senha não confere.');
-      return;
-    }
-
-    if (currentPassword === newPassword) {
-      setPasswordError('A nova senha precisa ser diferente da senha atual.');
-      return;
-    }
-
-    try {
-      setPasswordLoading(true);
-
-      await updatePassword({
-        currentPassword,
-        newPassword,
-      });
-
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPasswordSuccess('Senha atualizada com sucesso.');
-    } catch (err) {
-      console.error('Erro ao atualizar senha:', err);
-
-      const redirected = handleAuthError(err, 'Não foi possível atualizar a senha.');
-      if (!redirected) {
-        setPasswordError(getErrorMessage(err, 'Não foi possível atualizar a senha.'));
-      }
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
+  const quickActions: QuickAction[] = [
+    {
+      id: 'edit-profile',
+      icon: User,
+      title: 'Editar perfil',
+      subtitle: 'Atualizar seus dados cadastrais',
+      onClick: () => toast('Fluxo de edição entra na próxima etapa do Monity.'),
+    },
+    {
+      id: 'change-password',
+      icon: Lock,
+      title: 'Alterar senha',
+      subtitle: 'Reforçar a segurança da conta',
+      onClick: () => toast('Fluxo de alteração de senha entra na próxima etapa.'),
+    },
+    {
+      id: 'devices',
+      icon: Smartphone,
+      title: 'Dispositivos',
+      subtitle: 'Gerenciar acessos conectados',
+      onClick: () => toast('Gestão de dispositivos entra na próxima etapa.'),
+    },
+    {
+      id: 'subscription',
+      icon: WalletCards,
+      title: 'Assinatura',
+      subtitle: 'Visualizar plano e benefícios',
+      onClick: () => toast('Gestão de assinatura entra na próxima etapa.'),
+    },
+  ];
 
   if (loading) {
     return (
-      <div className="p-4 lg:p-8">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 flex items-center justify-center">
-          <div className="text-center">
-            <div className="w-12 h-12 border-4 border-[#2ECC71] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-600 font-medium">Carregando perfil...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (pageError || !user) {
-    return (
-      <div className="p-4 lg:p-8">
-        <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-8 text-center">
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Erro ao carregar</h3>
-          <p className="text-slate-500 mb-6">{pageError || 'Perfil não encontrado.'}</p>
-
-          <button
-            onClick={() => {
-              setLoading(true);
-              loadProfile();
-            }}
-            className="h-11 px-5 rounded-xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors"
-          >
-            Tentar novamente
-          </button>
-        </div>
+      <div className="flex h-[70vh] w-full flex-col items-center justify-center gap-4">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-600 border-t-transparent shadow-lg shadow-blue-200" />
+        <p className="animate-pulse text-sm font-black uppercase tracking-widest text-slate-400">
+          Sincronizando perfil
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 lg:p-8 space-y-6">
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-[#2ECC71] via-[#3498DB] to-[#34495E] p-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="flex items-center gap-5">
-              <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur flex items-center justify-center text-white text-2xl font-bold border border-white/20">
-                {initials}
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+      className="mx-auto max-w-7xl space-y-8 pb-24"
+    >
+      {/* HERO */}
+      <motion.section
+        variants={itemVariants}
+        className="relative overflow-hidden rounded-[3rem] border border-white/60 bg-white/80 p-6 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:p-8 xl:p-10"
+      >
+        <div className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-blue-200/40 blur-3xl" />
+        <div className="pointer-events-none absolute -right-20 top-0 h-72 w-72 rounded-full bg-indigo-200/40 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-40 w-40 rounded-full bg-emerald-200/30 blur-3xl" />
+
+        <div className="relative z-10 flex flex-col gap-8 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+            <div className="relative">
+              <div className="h-28 w-28 rounded-full bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 p-1.5 shadow-2xl shadow-blue-500/30 sm:h-32 sm:w-32">
+                <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-3xl font-black text-slate-900 sm:text-4xl">
+                  {getInitials(user?.name)}
+                </div>
+              </div>
+
+              <div className="absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-emerald-500 shadow-lg">
+                <BadgeCheck size={18} className="text-white" strokeWidth={2.8} />
+              </div>
+            </div>
+
+            <div className="space-y-3 text-center sm:text-left">
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-blue-700">
+                <Sparkles size={12} />
+                Perfil premium
               </div>
 
               <div>
-                <p className="text-white/80 text-sm font-medium mb-1">Conta Monity</p>
-                <h1 className="text-2xl md:text-3xl font-bold text-white">{user.name}</h1>
-                <p className="text-white/85 text-sm mt-1">
-                  Olá, {firstName}. Sua conta está ativa.
+                <h1 className="text-3xl font-black tracking-tighter text-slate-900 sm:text-5xl">
+                  Olá, {userFirstName}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm font-medium text-slate-500 sm:text-base">
+                  Aqui você gerencia sua identidade, segurança e preferências do ecossistema Monity.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-1 text-sm font-bold text-slate-500 sm:justify-start">
+                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2">
+                  <AtSign size={16} className="text-blue-600" />
+                  {user?.email}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2">
+                  <Calendar size={16} className="text-blue-600" />
+                  Membro desde {memberSinceLabel}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[460px]">
+            <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                Status
+              </p>
+              <p className="mt-2 text-base font-black tracking-tight text-emerald-600">
+                Ativo
+              </p>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                Plano
+              </p>
+              <p className="mt-2 text-base font-black tracking-tight text-slate-900">
+                Premium
+              </p>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                Segurança
+              </p>
+              <p className="mt-2 text-base font-black tracking-tight text-blue-600">
+                Estável
+              </p>
+            </div>
+
+            <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                Conta
+              </p>
+              <p className="mt-2 text-base font-black tracking-tight text-slate-900">
+                Validada
+              </p>
+            </div>
+          </div>
+        </div>
+      </motion.section>
+
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.35fr_0.95fr]">
+        {/* COLUNA ESQUERDA */}
+        <div className="space-y-8">
+          {/* QUICK ACTIONS */}
+          <motion.section
+            variants={itemVariants}
+            className="rounded-[2.5rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+          >
+            <div className="mb-6 flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-inner">
+                <Settings size={24} />
+              </div>
+              <div>
+                <h2 className="text-xl font-black tracking-tight text-slate-900">
+                  Ações rápidas
+                </h2>
+                <p className="text-sm font-medium text-slate-500">
+                  Ajustes frequentes para sua conta.
                 </p>
               </div>
             </div>
 
-            <button
-              onClick={handleLogout}
-              className="h-12 px-5 rounded-2xl bg-white text-slate-800 font-semibold shadow-lg hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
-            >
-              <LogOut size={18} />
-              Encerrar sessão
-            </button>
-          </div>
-        </div>
-
-        <div className="p-6 lg:p-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#3498DB] to-[#2980B9] flex items-center justify-center mb-4">
-              <User className="text-white" size={22} />
-            </div>
-            <p className="text-sm text-slate-500 font-medium mb-1">Nome completo</p>
-            <p className="text-slate-800 font-bold text-lg">{user.name}</p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#2ECC71] to-[#27AE60] flex items-center justify-center mb-4">
-              <Mail className="text-white" size={22} />
-            </div>
-            <p className="text-sm text-slate-500 font-medium mb-1">E-mail</p>
-            <p className="text-slate-800 font-bold text-lg break-all">{user.email}</p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 p-5 bg-slate-50">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#34495E] to-[#2C3E50] flex items-center justify-center mb-4">
-              <Shield className="text-white" size={22} />
-            </div>
-            <p className="text-sm text-slate-500 font-medium mb-1">Status da conta</p>
-            <p className="text-[#2ECC71] font-bold text-lg">Sessão autenticada</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#3498DB] to-[#2980B9] flex items-center justify-center">
-                <User className="text-white" size={20} />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Editar perfil</h2>
-                <p className="text-sm text-slate-500">Atualize seu nome de exibição</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleProfileSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Nome completo
-                </label>
-                <input
-                  type="text"
-                  value={profileName}
-                  onChange={(e) => setProfileName(e.target.value)}
-                  placeholder="Digite seu nome"
-                  className="w-full h-12 rounded-2xl border border-slate-300 px-4 text-slate-800 outline-none focus:border-[#3498DB] focus:ring-4 focus:ring-blue-100 transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  E-mail
-                </label>
-                <input
-                  type="email"
-                  value={user.email}
-                  disabled
-                  className="w-full h-12 rounded-2xl border border-slate-200 bg-slate-100 px-4 text-slate-500 cursor-not-allowed"
-                />
-              </div>
-
-              {profileSuccess && (
-                <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 flex items-start gap-3">
-                  <CheckCircle2 className="text-green-600 shrink-0 mt-0.5" size={18} />
-                  <p className="text-sm text-green-700 font-medium">{profileSuccess}</p>
-                </div>
-              )}
-
-              {profileError && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
-                  <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={18} />
-                  <p className="text-sm text-red-700 font-medium">{profileError}</p>
-                </div>
-              )}
-
-              <div className="flex justify-end">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {quickActions.map((action) => (
                 <button
-                  type="submit"
-                  disabled={profileLoading || !hasProfileChanges}
-                  className="h-12 px-5 rounded-2xl bg-slate-900 text-white font-semibold hover:bg-slate-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  key={action.id}
+                  type="button"
+                  onClick={action.onClick}
+                  className="group flex items-center justify-between rounded-[2rem] border border-slate-200 bg-slate-50/80 p-5 text-left transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:bg-white hover:shadow-xl"
                 >
-                  {profileLoading ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    'Salvar nome'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm transition-all group-hover:scale-105 group-hover:text-blue-600">
+                      <action.icon size={22} strokeWidth={2.2} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black tracking-tight text-slate-900">
+                        {action.title}
+                      </p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">
+                        {action.subtitle}
+                      </p>
+                    </div>
+                  </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#34495E] to-[#2C3E50] flex items-center justify-center">
-                <Lock className="text-white" size={20} />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-slate-800">Alterar senha</h2>
-                <p className="text-sm text-slate-500">Troque sua senha com segurança</p>
-              </div>
+                  <ChevronRight
+                    size={18}
+                    className="text-slate-300 transition-transform group-hover:translate-x-1"
+                  />
+                </button>
+              ))}
             </div>
+          </motion.section>
 
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Senha atual
-                </label>
-                <input
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Digite sua senha atual"
-                  className="w-full h-12 rounded-2xl border border-slate-300 px-4 text-slate-800 outline-none focus:border-[#3498DB] focus:ring-4 focus:ring-blue-100 transition"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* ACCOUNT DATA */}
+          <motion.section
+            variants={itemVariants}
+            className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm"
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-6 sm:px-8">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-inner">
+                  <User size={24} />
+                </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Nova senha
-                  </label>
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Mínimo de 6 caracteres"
-                    className="w-full h-12 rounded-2xl border border-slate-300 px-4 text-slate-800 outline-none focus:border-[#3498DB] focus:ring-4 focus:ring-blue-100 transition"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Confirmar nova senha
-                  </label>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Repita a nova senha"
-                    className="w-full h-12 rounded-2xl border border-slate-300 px-4 text-slate-800 outline-none focus:border-[#3498DB] focus:ring-4 focus:ring-blue-100 transition"
-                  />
-                </div>
-              </div>
-
-              {passwordSuccess && (
-                <div className="rounded-2xl border border-green-200 bg-green-50 px-4 py-3 flex items-start gap-3">
-                  <CheckCircle2 className="text-green-600 shrink-0 mt-0.5" size={18} />
-                  <p className="text-sm text-green-700 font-medium">{passwordSuccess}</p>
-                </div>
-              )}
-
-              {passwordError && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 flex items-start gap-3">
-                  <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={18} />
-                  <p className="text-sm text-red-700 font-medium">{passwordError}</p>
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={passwordLoading}
-                  className="h-12 px-5 rounded-2xl bg-[#2ECC71] text-white font-semibold hover:bg-[#27AE60] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  {passwordLoading ? (
-                    <>
-                      <Loader2 size={18} className="animate-spin" />
-                      Atualizando...
-                    </>
-                  ) : (
-                    'Atualizar senha'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-5">Resumo da conta</h2>
-
-            <div className="space-y-4">
-              <div className="rounded-2xl border border-slate-200 p-4 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm text-slate-500 font-medium">Identificador do usuário</p>
-                  <p className="text-slate-800 font-semibold break-all mt-1">{user.id}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                  <Shield size={18} className="text-slate-600" />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-4 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm text-slate-500 font-medium">Nome de exibição</p>
-                  <p className="text-slate-800 font-semibold mt-1">{firstName}</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                  <User size={18} className="text-slate-600" />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 p-4 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm text-slate-500 font-medium">Segurança</p>
-                  <p className="text-slate-800 font-semibold mt-1">
-                    Sua conta está autenticada e protegida por token de sessão.
+                  <h2 className="text-xl font-black tracking-tight text-slate-900">
+                    Dados da conta
+                  </h2>
+                  <p className="text-sm font-medium text-slate-500">
+                    Informações principais do usuário autenticado.
                   </p>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                  <Shield size={18} className="text-slate-600" />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => toast('Fluxo de edição entra na próxima etapa do Monity.')}
+                className="rounded-xl bg-slate-100 px-5 py-2.5 text-[11px] font-black uppercase tracking-[0.18em] text-slate-600 transition-all hover:bg-blue-600 hover:text-white active:scale-95"
+              >
+                Editar
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-5 p-6 sm:grid-cols-2 sm:p-8">
+              <div className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5">
+                <div className="mb-2 flex items-center gap-2">
+                  <Fingerprint size={14} className="text-slate-400" />
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                    Identificador
+                  </p>
+                </div>
+                <p className="truncate font-mono text-xs font-bold text-slate-700">
+                  {user?.id || 'id_not_found_sync'}
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                  E-mail
+                </p>
+                <p className="text-base font-black tracking-tight text-slate-900">
+                  {user?.email}
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                  Nome
+                </p>
+                <p className="text-base font-black tracking-tight text-slate-900">
+                  {user?.name}
+                </p>
+              </div>
+
+              <div className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5">
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                  Tipo de perfil
+                </p>
+                <p className="text-base font-black tracking-tight text-blue-600">
+                  Administrador titular
+                </p>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* PREFERENCES */}
+          <motion.section
+            variants={itemVariants}
+            className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm"
+          >
+            <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-6 sm:px-8">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner">
+                  <Bell size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-slate-900">
+                    Preferências
+                  </h2>
+                  <p className="text-sm font-medium text-slate-500">
+                    Ajuste o comportamento da sua experiência no app.
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-5">Ações rápidas</h2>
+            <div className="space-y-4 p-6 sm:p-8">
+              {preferenceItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-col gap-4 rounded-[2rem] border border-slate-200 bg-slate-50/60 p-5 transition-all hover:border-blue-200 hover:bg-white hover:shadow-lg sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm">
+                      <item.icon size={22} strokeWidth={2.2} />
+                    </div>
 
-            <div className="space-y-3">
-              <Link
-                href="/dashboard"
-                className="group rounded-2xl border border-slate-200 p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#3498DB] to-[#2980B9] flex items-center justify-center">
-                    <Wallet className="text-white" size={20} />
+                    <div>
+                      <p className="text-base font-black tracking-tight text-slate-900">
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-sm font-medium leading-relaxed text-slate-500">
+                        {item.desc}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-semibold text-slate-800">Ver dashboard</p>
-                    <p className="text-sm text-slate-500">Resumo financeiro</p>
+
+                  <div className="sm:pl-6">
+                    <Switch
+                      checked={item.active}
+                      onClick={() => handleTogglePreference(item.id)}
+                    />
                   </div>
                 </div>
-                <ArrowRight className="text-slate-400 group-hover:text-slate-700" size={18} />
-              </Link>
-
-              <Link
-                href="/dashboard/transacoes"
-                className="group rounded-2xl border border-slate-200 p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#2ECC71] to-[#27AE60] flex items-center justify-center">
-                    <ArrowUpDown className="text-white" size={20} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-800">Gerenciar transações</p>
-                    <p className="text-sm text-slate-500">Criar, editar e excluir</p>
-                  </div>
-                </div>
-                <ArrowRight className="text-slate-400 group-hover:text-slate-700" size={18} />
-              </Link>
-
-              <Link
-                href="/dashboard/categorias"
-                className="group rounded-2xl border border-slate-200 p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#34495E] to-[#2C3E50] flex items-center justify-center">
-                    <Tags className="text-white" size={20} />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-800">Organizar categorias</p>
-                    <p className="text-sm text-slate-500">Personalize sua estrutura</p>
-                  </div>
-                </div>
-                <ArrowRight className="text-slate-400 group-hover:text-slate-700" size={18} />
-              </Link>
+              ))}
             </div>
-          </div>
+          </motion.section>
+        </div>
+
+        {/* COLUNA DIREITA */}
+        <div className="space-y-8">
+          {/* SECURITY */}
+          <motion.section
+            variants={itemVariants}
+            className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm"
+          >
+            <div className="border-b border-slate-100 px-6 py-6 sm:px-8">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 shadow-inner">
+                  <Shield size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black tracking-tight text-slate-900">
+                    Segurança
+                  </h2>
+                  <p className="text-sm font-medium text-slate-500">
+                    Proteção da sua conta e dos seus acessos.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 p-6 sm:p-8">
+              <button
+                type="button"
+                onClick={() => toast('Fluxo de alteração de senha entra na próxima etapa.')}
+                className="group flex w-full items-center justify-between rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5 transition-all hover:border-blue-200 hover:bg-white hover:shadow-xl"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm transition-colors group-hover:text-blue-600">
+                    <Lock size={20} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-black tracking-tight text-slate-900">
+                      Alterar senha
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                      Atualize sua credencial de acesso.
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight
+                  size={18}
+                  className="text-slate-300 transition-transform group-hover:translate-x-1"
+                />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => toast('Gestão de dispositivos entra na próxima etapa.')}
+                className="group flex w-full items-center justify-between rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5 transition-all hover:border-blue-200 hover:bg-white hover:shadow-xl"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm transition-colors group-hover:text-blue-600">
+                    <Smartphone size={20} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-black tracking-tight text-slate-900">
+                      Dispositivos conectados
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                      Visualize onde sua conta está ativa.
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight
+                  size={18}
+                  className="text-slate-300 transition-transform group-hover:translate-x-1"
+                />
+              </button>
+            </div>
+          </motion.section>
+
+          {/* PLAN CARD */}
+          <motion.section
+            variants={itemVariants}
+            className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm"
+          >
+            <div className="p-6 sm:p-8">
+              <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-blue-600 via-indigo-600 to-indigo-800 p-7 text-white shadow-2xl shadow-blue-500/25">
+                <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+                <div className="absolute bottom-0 left-1/3 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
+
+                <div className="relative z-10">
+                  <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md">
+                    <Crown className="text-amber-400" size={32} strokeWidth={2.5} />
+                  </div>
+
+                  <p className="text-3xl font-black tracking-tighter">Monity Pro</p>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.25em] text-blue-100/80">
+                    Membro vitalício
+                  </p>
+
+                  <div className="mt-10 grid grid-cols-2 gap-4 border-t border-white/10 pt-6">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200/60">
+                        Próximo débito
+                      </p>
+                      <p className="mt-2 text-xl font-black">Isento</p>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200/60">
+                        Status
+                      </p>
+                      <div className="mt-2 inline-flex rounded-lg bg-emerald-500/20 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">
+                        Ativo
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => toast('Gestão de assinatura entra na próxima etapa.')}
+                className="mt-5 w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-[11px] font-black uppercase tracking-[0.25em] text-slate-500 transition-all hover:border-blue-200 hover:bg-white hover:text-blue-600"
+              >
+                Gerenciar assinatura
+              </button>
+            </div>
+          </motion.section>
+
+          {/* LOGOUT */}
+          <motion.section variants={itemVariants}>
+            <button
+              type="button"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="group flex w-full items-center justify-center gap-4 rounded-[2.5rem] border border-rose-100 bg-rose-50 p-6 text-lg font-black text-rose-600 shadow-sm shadow-rose-200/20 transition-all hover:bg-rose-100 active:scale-95 disabled:opacity-60"
+            >
+              <LogOut
+                size={24}
+                strokeWidth={3}
+                className="transition-transform group-hover:-translate-x-1"
+              />
+              {loggingOut ? 'Saindo...' : 'Encerrar sessão'}
+            </button>
+          </motion.section>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

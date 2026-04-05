@@ -36,6 +36,8 @@ type FinancialState = {
   alertsSummary: AlertsSummary | null;
 
   loading: boolean;
+  syncing: boolean;
+  initialized: boolean;
   error: string | null;
 
   loadAll: () => Promise<void>;
@@ -63,10 +65,32 @@ const emptyAlertsSummary: AlertsSummary = {
   low: 0,
 };
 
-function getErrorMessage(
-  error: unknown,
-  fallback: string
-) {
+let snapshotRequestSequence = 0;
+let lastAppliedSnapshotSequence = 0;
+
+function cloneEmptySummary(): TransactionSummary {
+  return { ...emptySummary };
+}
+
+function cloneEmptyAlertsSummary(): AlertsSummary {
+  return { ...emptyAlertsSummary };
+}
+
+function getNextSnapshotSequence() {
+  snapshotRequestSequence += 1;
+  return snapshotRequestSequence;
+}
+
+function shouldApplySnapshot(sequence: number) {
+  if (sequence < lastAppliedSnapshotSequence) {
+    return false;
+  }
+
+  lastAppliedSnapshotSequence = sequence;
+  return true;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim()) {
     return error.message;
   }
@@ -74,104 +98,290 @@ function getErrorMessage(
   return fallback;
 }
 
+function parseTransactionTimestamp(value?: string | Date | null) {
+  if (!value) return 0;
+
+  if (value instanceof Date) {
+    const timestamp = value.getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function getTransactionPrimaryTimestamp(transaction: Partial<Transaction>) {
+  return parseTransactionTimestamp(
+    (transaction as Transaction).transactionDate ??
+      (transaction as Transaction).purchaseDate ??
+      null
+  );
+}
+
+function getTransactionSecondaryTimestamp(transaction: Partial<Transaction>) {
+  return parseTransactionTimestamp(
+    (transaction as Transaction).createdAt ??
+      (transaction as Transaction).updatedAt ??
+      null
+  );
+}
+
+function compareTransactions(a: Transaction, b: Transaction) {
+  const primaryDiff =
+    getTransactionPrimaryTimestamp(b) - getTransactionPrimaryTimestamp(a);
+
+  if (primaryDiff !== 0) {
+    return primaryDiff;
+  }
+
+  const secondaryDiff =
+    getTransactionSecondaryTimestamp(b) - getTransactionSecondaryTimestamp(a);
+
+  if (secondaryDiff !== 0) {
+    return secondaryDiff;
+  }
+
+  return String(b._id || '').localeCompare(String(a._id || ''));
+}
+
+function normalizeTransactions(data: Transaction[] | null | undefined): Transaction[] {
+  if (!Array.isArray(data)) return [];
+
+  const byId = new Map<string, Transaction>();
+
+  for (const transaction of data) {
+    if (!transaction || typeof transaction !== 'object') continue;
+
+    const id = String(transaction._id || '').trim();
+    if (!id) continue;
+
+    byId.set(id, transaction);
+  }
+
+  return Array.from(byId.values()).sort(compareTransactions);
+}
+
+function normalizeAccounts(data: AccountWithBalance[] | null | undefined): AccountWithBalance[] {
+  if (!Array.isArray(data)) return [];
+
+  return [...data];
+}
+
+function normalizeSummary(data: TransactionSummary | null | undefined): TransactionSummary {
+  if (!data) return cloneEmptySummary();
+
+  return {
+    income: Number(data.income || 0),
+    expense: Number(data.expense || 0),
+    incomeCount: Number(data.incomeCount || 0),
+    expenseCount: Number(data.expenseCount || 0),
+    balance: Number(data.balance || 0),
+  };
+}
+
+function normalizeAlertsSummary(data: AlertsSummary | null | undefined): AlertsSummary {
+  if (!data) return cloneEmptyAlertsSummary();
+
+  return {
+    total: Number(data.total || 0),
+    high: Number(data.high || 0),
+    medium: Number(data.medium || 0),
+    low: Number(data.low || 0),
+  };
+}
+
+function applySnapshotToStore(
+  set: (partial: Partial<FinancialState>) => void,
+  snapshot: {
+    transactions: Transaction[];
+    summary: TransactionSummary;
+    accounts: AccountWithBalance[];
+    projection: FinancialProjection | null;
+    alerts: FinancialAlert[];
+    alertsSummary: AlertsSummary;
+  },
+  extra?: Partial<FinancialState>
+) {
+  set({
+    transactions: snapshot.transactions,
+    summary: snapshot.summary,
+    accounts: snapshot.accounts,
+    projection: snapshot.projection,
+    alerts: snapshot.alerts,
+    alertsSummary: snapshot.alertsSummary,
+    ...extra,
+  });
+}
+
+async function fetchOptionalProjection(
+  fallback: FinancialProjection | null
+): Promise<FinancialProjection | null> {
+  try {
+    const projection = await fetchFinancialProjection();
+    return projection ?? null;
+  } catch (error) {
+    console.warn('Não foi possível atualizar a projeção financeira.', error);
+    return fallback ?? null;
+  }
+}
+
+async function fetchOptionalAlerts(
+  fallbackAlerts: FinancialAlert[],
+  fallbackSummary: AlertsSummary | null
+): Promise<{ alerts: FinancialAlert[]; alertsSummary: AlertsSummary }> {
+  try {
+    const alertsData = await fetchAlerts();
+
+    return {
+      alerts: Array.isArray(alertsData?.alerts) ? alertsData.alerts : [],
+      alertsSummary: normalizeAlertsSummary(alertsData?.summary),
+    };
+  } catch (error) {
+    console.warn('Não foi possível atualizar os alertas financeiros.', error);
+
+    return {
+      alerts: Array.isArray(fallbackAlerts) ? fallbackAlerts : [],
+      alertsSummary: normalizeAlertsSummary(fallbackSummary),
+    };
+  }
+}
+
+async function fetchServerSnapshot(
+  previousState?: Pick<FinancialState, 'projection' | 'alerts' | 'alertsSummary'>
+) {
+  const fallbackProjection = previousState?.projection ?? null;
+  const fallbackAlerts = previousState?.alerts ?? [];
+  const fallbackAlertsSummary = previousState?.alertsSummary ?? cloneEmptyAlertsSummary();
+
+  const [transactionsData, summaryData, accountsData, projectionData, alertsData] =
+    await Promise.all([
+      fetchTransactions(),
+      fetchTransactionSummary(),
+      fetchAccountsWithBalance(),
+      fetchOptionalProjection(fallbackProjection),
+      fetchOptionalAlerts(fallbackAlerts, fallbackAlertsSummary),
+    ]);
+
+  return {
+    transactions: normalizeTransactions(transactionsData),
+    summary: normalizeSummary(summaryData),
+    accounts: normalizeAccounts(accountsData),
+    projection: projectionData,
+    alerts: alertsData.alerts,
+    alertsSummary: alertsData.alertsSummary,
+  };
+}
+
+async function runMutationAndRefresh(
+  mutation: () => Promise<unknown>,
+  get: () => FinancialState
+) {
+  await mutation();
+  await get().refreshDerivedData();
+}
+
 export const useFinancialStore = create<FinancialState>((set, get) => ({
   transactions: [],
   accounts: [],
-  summary: emptySummary,
+  summary: cloneEmptySummary(),
   projection: null,
   alerts: [],
-  alertsSummary: emptyAlertsSummary,
+  alertsSummary: cloneEmptyAlertsSummary(),
+
   loading: false,
+  syncing: false,
+  initialized: false,
   error: null,
 
   clearError: () => set({ error: null }),
 
   loadAll: async () => {
+    const sequence = getNextSnapshotSequence();
+
     set({ loading: true, error: null });
 
     try {
-      const [
-        transactionsData,
-        summaryData,
-        accountsData,
-        projectionData,
-        alertsData,
-      ] = await Promise.all([
-        fetchTransactions(),
-        fetchTransactionSummary(),
-        fetchAccountsWithBalance(),
-        fetchFinancialProjection(),
-        fetchAlerts(),
-      ]);
+      const current = get();
 
-      set({
-        transactions: Array.isArray(transactionsData) ? transactionsData : [],
-        summary: summaryData ?? emptySummary,
-        accounts: Array.isArray(accountsData) ? accountsData : [],
-        projection: projectionData ?? null,
-        alerts: Array.isArray(alertsData?.alerts) ? alertsData.alerts : [],
-        alertsSummary: alertsData?.summary ?? emptyAlertsSummary,
+      const snapshot = await fetchServerSnapshot({
+        projection: current.projection,
+        alerts: current.alerts,
+        alertsSummary: current.alertsSummary,
+      });
+
+      if (!shouldApplySnapshot(sequence)) {
+        return;
+      }
+
+      applySnapshotToStore(set, snapshot, {
         loading: false,
+        initialized: true,
         error: null,
       });
     } catch (error) {
       console.error('Erro ao carregar dados financeiros:', error);
 
+      if (!shouldApplySnapshot(sequence)) {
+        return;
+      }
+
       set({
         loading: false,
+        initialized: true,
         error: getErrorMessage(error, 'Não foi possível carregar os dados financeiros.'),
       });
     }
   },
 
   refreshDerivedData: async () => {
-    try {
-      const [accountsData, summaryData, projectionData, alertsData] =
-        await Promise.all([
-          fetchAccountsWithBalance(),
-          fetchTransactionSummary(),
-          fetchFinancialProjection(),
-          fetchAlerts(),
-        ]);
+    const sequence = getNextSnapshotSequence();
 
-      set({
-        accounts: Array.isArray(accountsData) ? accountsData : [],
-        summary: summaryData ?? emptySummary,
-        projection: projectionData ?? null,
-        alerts: Array.isArray(alertsData?.alerts) ? alertsData.alerts : [],
-        alertsSummary: alertsData?.summary ?? emptyAlertsSummary,
+    try {
+      const current = get();
+
+      const snapshot = await fetchServerSnapshot({
+        projection: current.projection,
+        alerts: current.alerts,
+        alertsSummary: current.alertsSummary,
+      });
+
+      if (!shouldApplySnapshot(sequence)) {
+        return;
+      }
+
+      applySnapshotToStore(set, snapshot, {
         error: null,
       });
     } catch (error) {
-      console.error('Erro ao atualizar dados derivados:', error);
+      console.error('Erro ao sincronizar dados financeiros:', error);
+
+      if (!shouldApplySnapshot(sequence)) {
+        return;
+      }
 
       set({
         error: getErrorMessage(
           error,
-          'Não foi possível atualizar saldos, projeção e alertas.'
+          'Não foi possível sincronizar transações, saldos, projeção e alertas.'
         ),
       });
+
+      throw error;
     }
   },
 
   createAndSync: async (payload) => {
-    set({ loading: true, error: null });
+    set({ syncing: true, error: null });
 
     try {
-      const created = await createTransaction(payload);
+      await runMutationAndRefresh(() => createTransaction(payload), get);
 
-      set((state) => ({
-        transactions: [created, ...state.transactions],
-      }));
-
-      await get().refreshDerivedData();
-
-      set({ loading: false, error: null });
+      set({ syncing: false, error: null });
     } catch (error) {
       console.error('Erro ao criar transação:', error);
 
       set({
-        loading: false,
+        syncing: false,
         error: getErrorMessage(error, 'Não foi possível criar a transação.'),
       });
 
@@ -180,25 +390,17 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
   },
 
   updateAndSync: async (id, payload) => {
-    set({ loading: true, error: null });
+    set({ syncing: true, error: null });
 
     try {
-      const updated = await updateTransaction(id, payload);
+      await runMutationAndRefresh(() => updateTransaction(id, payload), get);
 
-      set((state) => ({
-        transactions: state.transactions.map((transaction) =>
-          transaction._id === updated._id ? updated : transaction
-        ),
-      }));
-
-      await get().refreshDerivedData();
-
-      set({ loading: false, error: null });
+      set({ syncing: false, error: null });
     } catch (error) {
       console.error('Erro ao atualizar transação:', error);
 
       set({
-        loading: false,
+        syncing: false,
         error: getErrorMessage(error, 'Não foi possível atualizar a transação.'),
       });
 
@@ -207,25 +409,27 @@ export const useFinancialStore = create<FinancialState>((set, get) => ({
   },
 
   deleteAndSync: async (id) => {
-    set({ loading: true, error: null });
+    const normalizedId = String(id || '').trim();
+    const previousTransactions = get().transactions;
+
+    set({
+      syncing: true,
+      error: null,
+      transactions: previousTransactions.filter(
+        (transaction) => String(transaction._id || '').trim() !== normalizedId
+      ),
+    });
 
     try {
-      await deleteTransaction(id);
+      await runMutationAndRefresh(() => deleteTransaction(normalizedId), get);
 
-      set((state) => ({
-        transactions: state.transactions.filter(
-          (transaction) => transaction._id !== id
-        ),
-      }));
-
-      await get().refreshDerivedData();
-
-      set({ loading: false, error: null });
+      set({ syncing: false, error: null });
     } catch (error) {
       console.error('Erro ao excluir transação:', error);
 
       set({
-        loading: false,
+        syncing: false,
+        transactions: previousTransactions,
         error: getErrorMessage(error, 'Não foi possível excluir a transação.'),
       });
 

@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Wallet,
   Landmark,
@@ -10,9 +12,12 @@ import {
   Pencil,
   Trash2,
   Search,
-  RefreshCcw,
   CheckCircle2,
-  XCircle,
+  X,
+  AlertTriangle,
+  Loader2,
+  TrendingUp,
+  TrendingDown
 } from 'lucide-react';
 
 import {
@@ -35,8 +40,6 @@ type Account = {
   bankCode?: string | null;
   color?: string;
   isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
 };
 
 type AccountFormData = {
@@ -53,36 +56,28 @@ const defaultForm: AccountFormData = {
   type: 'checking',
   initialBalance: '',
   bank: '',
-  color: '#2563eb',
+  color: '#2563EB', // blue-600 default
   isActive: true,
 };
 
 const accountTypeLabels: Record<AccountType, string> = {
-  checking: 'Conta corrente',
+  checking: 'Conta Corrente',
   wallet: 'Carteira',
-  cash: 'Dinheiro',
+  cash: 'Dinheiro Físico',
   savings: 'Poupança',
 };
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(value || 0);
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 }
 
 function getAccountIcon(type: AccountType) {
   switch (type) {
-    case 'checking':
-      return Landmark;
-    case 'wallet':
-      return Wallet;
-    case 'cash':
-      return Banknote;
-    case 'savings':
-      return PiggyBank;
-    default:
-      return Wallet;
+    case 'checking': return Landmark;
+    case 'wallet': return Wallet;
+    case 'cash': return Banknote;
+    case 'savings': return PiggyBank;
+    default: return Wallet;
   }
 }
 
@@ -93,10 +88,38 @@ function normalizeNumber(value: string) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'string') return error;
-  return 'Ocorreu um erro desconhecido.';
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 260, damping: 20 } }
+};
+
+// Componente de Métrica Refinado (Padrão Light Premium)
+function MetricCard({ title, value, subtitle, tone, icon }: { title: string; value: string; subtitle?: string; tone: 'blue' | 'green' | 'red' | 'purple' | 'slate'; icon: ReactNode }) {
+  const styles = {
+    blue: { box: 'bg-white border-slate-100 hover:border-blue-100', icon: 'bg-blue-50 text-blue-600', value: 'text-blue-600' },
+    green: { box: 'bg-white border-slate-100 hover:border-emerald-100', icon: 'bg-emerald-50 text-emerald-600', value: 'text-emerald-600' },
+    red: { box: 'bg-white border-slate-100 hover:border-rose-100', icon: 'bg-rose-50 text-rose-600', value: 'text-rose-600' },
+    purple: { box: 'bg-white border-slate-100 hover:border-purple-100', icon: 'bg-purple-50 text-purple-600', value: 'text-purple-600' },
+    slate: { box: 'bg-slate-900 border-slate-800 shadow-xl shadow-slate-900/10', icon: 'bg-slate-800 text-slate-300', value: 'text-white' },
+  }[tone];
+
+  return (
+    <motion.div variants={itemVariants} className={`rounded-[2.5rem] p-7 shadow-sm border flex flex-col justify-between h-full transition-all duration-300 hover:shadow-md ${styles.box}`}>
+      <div>
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-5 ${styles.icon}`}>
+          {icon}
+        </div>
+        <p className="text-[10px] font-black tracking-[0.2em] uppercase mb-1 text-slate-400">{title}</p>
+        <p className={`text-3xl font-black tracking-tighter ${styles.value}`}>{value}</p>
+      </div>
+      {subtitle && <p className={`text-xs font-bold mt-3 ${tone === 'slate' ? 'text-slate-400' : 'text-slate-400'}`}>{subtitle}</p>}
+    </motion.div>
+  );
 }
 
 export default function ContasPage() {
@@ -112,32 +135,16 @@ export default function ContasPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [form, setForm] = useState<AccountFormData>(defaultForm);
-
-  const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-
-  async function refreshAll() {
-    try {
-      setError('');
-      await loadAll();
-    } catch (err: unknown) {
-      setError(getErrorMessage(err) || 'Não foi possível carregar as contas.');
-    }
-  }
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    refreshAll();
-  }, []);
-
-  useEffect(() => {
-    if (!successMessage) return;
-    const timer = setTimeout(() => setSuccessMessage(''), 2500);
-    return () => clearTimeout(timer);
-  }, [successMessage]);
+    loadAll();
+  }, [loadAll]);
 
   function openCreateModal() {
     setEditingAccount(null);
     setForm(defaultForm);
+    setFormError(null);
     setIsModalOpen(true);
   }
 
@@ -148,9 +155,10 @@ export default function ContasPage() {
       type: account.type,
       initialBalance: String(account.initialBalance ?? 0),
       bank: account.bankCode || '',
-      color: account.color || '#2563eb',
+      color: account.color || '#3B82F6',
       isActive: account.isActive,
     });
+    setFormError(null);
     setIsModalOpen(true);
   }
 
@@ -158,7 +166,7 @@ export default function ContasPage() {
     if (saving) return;
     setIsModalOpen(false);
     setEditingAccount(null);
-    setForm(defaultForm);
+    setFormError(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -166,7 +174,7 @@ export default function ContasPage() {
 
     try {
       setSaving(true);
-      setError('');
+      setFormError(null);
 
       const payload = {
         name: form.name.trim(),
@@ -177,40 +185,34 @@ export default function ContasPage() {
         isActive: form.isActive,
       };
 
-      if (!payload.name) {
-        throw new Error('Informe o nome da conta.');
-      }
+      if (!payload.name) throw new Error('Informe o nome da conta.');
 
       if (editingAccount?._id) {
         await updateAccount(editingAccount._id, payload);
-        setSuccessMessage('Conta atualizada com sucesso.');
+        toast.success('Conta atualizada com sucesso!');
       } else {
         await createAccount(payload);
-        setSuccessMessage('Conta criada com sucesso.');
+        toast.success('Conta criada com sucesso!');
       }
 
       await loadAll();
       closeModal();
-    } catch (err: unknown) {
-      setError(getErrorMessage(err) || 'Não foi possível salvar a conta.');
+    } catch (err: any) {
+      setFormError(err.message || 'Erro ao salvar a conta.');
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleDelete(id: string) {
-    const confirmed = window.confirm('Tem certeza que deseja excluir esta conta?');
-    if (!confirmed) return;
-
+  async function handleDelete(id: string, name: string) {
+    if (!window.confirm(`Tem certeza que deseja excluir a conta "${name}"?`)) return;
     try {
       setDeletingId(id);
-      setError('');
-
       await deleteAccount(id);
       await loadAll();
-      setSuccessMessage('Conta excluída com sucesso.');
-    } catch (err: unknown) {
-      setError(getErrorMessage(err) || 'Não foi possível excluir a conta.');
+      toast.success('Conta excluída com sucesso!');
+    } catch (err: any) {
+      toast.error('Erro ao excluir a conta.');
     } finally {
       setDeletingId(null);
     }
@@ -218,39 +220,19 @@ export default function ContasPage() {
 
   async function handleToggleStatus(account: Account) {
     try {
-      setError('');
-
-      const payload = {
-        isActive: !account.isActive,
-      };
-
-      const result = await updateAccount(account._id, payload);
-
+      await updateAccount(account._id, { isActive: !account.isActive });
       await loadAll();
-
-      setSuccessMessage(
-        result.isActive ? 'Conta ativada com sucesso.' : 'Conta desativada com sucesso.'
-      );
-    } catch (err: unknown) {
-      setError(getErrorMessage(err) || 'Não foi possível alterar o status da conta.');
+      toast.success(account.isActive ? 'Conta inativada' : 'Conta reativada');
+    } catch (err) {
+      toast.error('Erro ao alterar status.');
     }
   }
 
   const filteredAccounts = useMemo(() => {
     return accounts.filter((account) => {
-      const matchesSearch =
-        account.name.toLowerCase().includes(search.toLowerCase()) ||
-        (account.bankCode || '').toLowerCase().includes(search.toLowerCase());
-
+      const matchesSearch = account.name.toLowerCase().includes(search.toLowerCase()) || (account.bankCode || '').toLowerCase().includes(search.toLowerCase());
       const matchesType = typeFilter === 'all' ? true : account.type === typeFilter;
-
-      const matchesStatus =
-        statusFilter === 'all'
-          ? true
-          : statusFilter === 'active'
-          ? account.isActive
-          : !account.isActive;
-
+      const matchesStatus = statusFilter === 'all' ? true : statusFilter === 'active' ? account.isActive : !account.isActive;
       return matchesSearch && matchesType && matchesStatus;
     });
   }, [accounts, search, typeFilter, statusFilter]);
@@ -259,460 +241,249 @@ export default function ContasPage() {
     const total = accounts.length;
     const active = accounts.filter((item) => item.isActive).length;
     const inactive = total - active;
-
-    const totalBalance = accounts.reduce(
-      (acc, item) => acc + Number(item.currentBalance || 0),
-      0
-    );
-
+    const totalBalance = accounts.reduce((acc, item) => acc + Number(item.currentBalance || 0), 0);
     return { total, active, inactive, totalBalance };
   }, [accounts]);
 
+  if (loading) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin shadow-lg shadow-blue-200" />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <motion.div variants={containerVariants} initial="hidden" animate="show" className="p-6 lg:p-10 space-y-10 max-w-[1600px] mx-auto pb-32">
+      
+      {/* HEADER DA PÁGINA */}
+      <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Contas</h1>
-          <p className="text-sm text-gray-500">
-            Gerencie suas contas, bancos, carteira e saldo inicial.
-          </p>
+          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-600 mb-2">Financeiro</p>
+          <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tighter">Contas Bancárias</h1>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={refreshAll}
-            className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-          >
-            <RefreshCcw className="h-4 w-4" />
-            Atualizar
-          </button>
-
-          <button
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            Nova conta
-          </button>
-        </div>
-      </div>
-
-      {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
-
-      {successMessage ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-          {successMessage}
-        </div>
-      ) : null}
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Total de contas</p>
-          <h3 className="mt-2 text-2xl font-bold text-gray-900">{summary.total}</h3>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Ativas</p>
-          <h3 className="mt-2 text-2xl font-bold text-emerald-600">{summary.active}</h3>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Inativas</p>
-          <h3 className="mt-2 text-2xl font-bold text-gray-500">{summary.inactive}</h3>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-gray-500">Saldo total atual</p>
-          <h3 className="mt-2 text-2xl font-bold text-blue-600">
-            {formatCurrency(summary.totalBalance)}
-          </h3>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
-          <div className="relative lg:col-span-2">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nome da conta ou banco..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-blue-500"
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="relative flex-1 min-w-[300px]">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" placeholder="Buscar conta ou banco..." 
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-14 pr-6 py-4.5 rounded-[1.5rem] border border-slate-200 bg-white shadow-sm focus:ring-4 focus:ring-blue-500/5 outline-none transition-all font-bold text-slate-700"
             />
           </div>
-
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as 'all' | AccountType)}
-            className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500"
-          >
-            <option value="all">Todos os tipos</option>
-            <option value="checking">Conta corrente</option>
-            <option value="wallet">Carteira</option>
-            <option value="cash">Dinheiro</option>
-            <option value="savings">Poupança</option>
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')
-            }
-            className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-blue-500"
-          >
-            <option value="all">Todos os status</option>
-            <option value="active">Ativas</option>
-            <option value="inactive">Inativas</option>
-          </select>
+          <button onClick={openCreateModal} className="px-8 py-4.5 bg-blue-600 text-white rounded-[1.5rem] shadow-xl shadow-blue-200 hover:scale-105 active:scale-95 transition-all font-black flex items-center gap-3">
+            <Plus size={20} strokeWidth={3} /> Nova Conta
+          </button>
         </div>
       </div>
 
-      {loading ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500 shadow-sm">
-          Carregando contas...
-        </div>
-      ) : filteredAccounts.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center shadow-sm">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100">
-            <Wallet className="h-7 w-7 text-gray-500" />
+      {/* MÉTRICAS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <MetricCard title="Saldo Total" value={formatCurrency(summary.totalBalance)} subtitle="Soma de todas as contas" tone="slate" icon={<Wallet size={24} />} />
+        <MetricCard title="Total de contas" value={String(summary.total)} subtitle="Contas cadastradas" tone="blue" icon={<Landmark size={24} />} />
+        <MetricCard title="Contas ativas" value={String(summary.active)} subtitle="Disponíveis para uso" tone="green" icon={<CheckCircle2 size={24} />} />
+        <MetricCard title="Contas inativas" value={String(summary.inactive)} subtitle="Fora de operação" tone="red" icon={<AlertTriangle size={24} />} />
+      </div>
+
+      {/* LISTAGEM DE CONTAS */}
+      <motion.div variants={itemVariants} className="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
+        <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50/50">
+          <div className="flex items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-inner"><Wallet size={28} strokeWidth={2.5} /></div>
+            <div>
+              <h3 className="text-2xl font-black text-slate-900 tracking-tighter mb-1">Minhas Contas</h3>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{filteredAccounts.length} conta(s) encontrada(s)</p>
+            </div>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            Nenhuma conta encontrada
-          </h3>
-          <p className="mt-2 text-sm text-gray-500">
-            Cadastre sua primeira conta para começar a organizar o caixa do sistema.
-          </p>
-          <button
-            onClick={openCreateModal}
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" />
-            Criar conta
-          </button>
+          
+          <div className="flex items-center gap-3">
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white font-black text-xs uppercase tracking-widest text-slate-600 outline-none focus:ring-4 focus:ring-blue-500/10 cursor-pointer">
+              <option value="all">Todos os Tipos</option>
+              <option value="checking">Conta Corrente</option>
+              <option value="wallet">Carteira</option>
+              <option value="cash">Dinheiro</option>
+              <option value="savings">Poupança</option>
+            </select>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white font-black text-xs uppercase tracking-widest text-slate-600 outline-none focus:ring-4 focus:ring-blue-500/10 cursor-pointer">
+              <option value="all">Todos os Status</option>
+              <option value="active">Apenas Ativas</option>
+              <option value="inactive">Apenas Inativas</option>
+            </select>
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {filteredAccounts.map((account) => {
-            const Icon = getAccountIcon(account.type);
 
-            return (
-              <div
-                key={account._id}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 items-start gap-4">
-                    <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-white shadow-sm"
-                      style={{ backgroundColor: account.color || '#2563eb' }}
-                    >
-                      <Icon className="h-5 w-5" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-lg font-semibold text-gray-900">
-                          {account.name}
-                        </h3>
-
-                        {account.isActive ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Ativa
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                            <XCircle className="h-3.5 w-3.5" />
-                            Inativa
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="mt-1 text-sm text-gray-500">
-                        {accountTypeLabels[account.type]}
-                        {account.bankCode ? ` • ${account.bankCode}` : ''}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      onClick={() => openEditModal(account)}
-                      className="rounded-xl border border-gray-200 p-2 text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-                      title="Editar"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(account._id)}
-                      disabled={deletingId === account._id}
-                      className="rounded-xl border border-red-200 p-2 text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      title="Excluir"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-5 grid grid-cols-1 gap-3">
-                  <div className="rounded-xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">
-                      Saldo atual
-                    </p>
-                    <p className="mt-1 text-lg font-bold text-gray-900">
-                      {formatCurrency(Number(account.currentBalance || 0))}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-emerald-50 p-3">
-                      <p className="text-xs text-emerald-700">Entradas</p>
-                      <p className="text-sm font-semibold text-emerald-800">
-                        {formatCurrency(Number(account.totalIncome || 0))}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-red-50 p-3">
-                      <p className="text-xs text-red-700">Saídas</p>
-                      <p className="text-sm font-semibold text-red-800">
-                        {formatCurrency(Number(account.totalExpense || 0))}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-gray-50 p-4">
-                    <p className="text-xs uppercase tracking-wide text-gray-500">
-                      Banco / origem
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-gray-900">
-                      {account.bankCode || 'Não informado'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <div className="text-xs text-gray-400">
-                    Cor da conta:{' '}
-                    <span className="font-medium text-gray-600">{account.color || '#2563eb'}</span>
-                  </div>
-
-                  <button
-                    onClick={() => handleToggleStatus(account)}
-                    className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
-                      account.isActive
-                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                    }`}
+        <div className="p-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+          {filteredAccounts.length === 0 ? (
+            <div className="col-span-full py-20 text-center flex flex-col items-center">
+              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6"><Landmark className="text-slate-300" size={48} /></div>
+              <h4 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">Nenhuma conta encontrada</h4>
+              <p className="text-slate-500 font-bold">Ajuste os filtros ou cadastre uma nova conta.</p>
+            </div>
+          ) : (
+            <AnimatePresence>
+              {filteredAccounts.map((account) => {
+                const Icon = getAccountIcon(account.type);
+                return (
+                  <motion.div 
+                    key={account._id} 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="group relative bg-white rounded-[2.5rem] p-8 border border-slate-100 hover:shadow-2xl hover:shadow-slate-200/50 transition-all overflow-hidden flex flex-col h-full"
                   >
-                    {account.isActive ? 'Desativar' : 'Ativar'}
+                    {/* Efeito visual de cor (blur no canto superior) */}
+                    <div 
+                      className="absolute top-0 right-0 w-40 h-40 blur-[60px] opacity-10 transition-opacity group-hover:opacity-30 pointer-events-none" 
+                      style={{ backgroundColor: account.color || '#3B82F6' }} 
+                    />
+                    
+                    <div className="flex justify-between items-start mb-8 relative z-10">
+                      <div className="flex items-center gap-5">
+                        <div className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm" style={{ backgroundColor: `${account.color || '#3B82F6'}15`, color: account.color || '#3B82F6' }}>
+                          <Icon size={28} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-slate-900 text-xl leading-none mb-1.5">{account.name}</h4>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{accountTypeLabels[account.type]} {account.bankCode ? `• ${account.bankCode}` : ''}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEditModal(account)} className="p-2 text-slate-300 hover:text-blue-600 transition-colors rounded-xl hover:bg-blue-50">
+                          <Pencil size={18} />
+                        </button>
+                        <button onClick={() => handleDelete(account._id, account.name)} disabled={deletingId === account._id} className="p-2 text-slate-300 hover:text-rose-600 transition-colors rounded-xl hover:bg-rose-50 disabled:opacity-50">
+                          {deletingId === account._id ? <Loader2 size={18} className="animate-spin" /> : <Trash2 size={18} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="mb-8 relative z-10">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Saldo Atual</p>
+                      <p className="text-4xl font-black tracking-tighter text-slate-900">{formatCurrency(account.currentBalance || 0)}</p>
+                    </div>
+
+                    <div className="mt-auto grid grid-cols-2 gap-4 relative z-10 pt-6 border-t border-slate-50">
+                      <div className="bg-slate-50/50 p-4 rounded-2xl">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <TrendingUp size={14} className="text-emerald-500" />
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Entradas</p>
+                        </div>
+                        <p className="font-black text-emerald-600 text-sm">{formatCurrency(account.totalIncome || 0)}</p>
+                      </div>
+                      <div className="bg-slate-50/50 p-4 rounded-2xl">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <TrendingDown size={14} className="text-rose-500" />
+                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Saídas</p>
+                        </div>
+                        <p className="font-black text-rose-600 text-sm">{formatCurrency(account.totalExpense || 0)}</p>
+                      </div>
+                    </div>
+
+                    <div className="absolute bottom-8 right-8 z-20">
+                      <button 
+                        onClick={() => handleToggleStatus(account)} 
+                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                          account.isActive 
+                            ? 'bg-white border-emerald-100 text-emerald-600 hover:bg-emerald-50' 
+                            : 'bg-white border-rose-100 text-rose-600 hover:bg-rose-50'
+                        }`}
+                      >
+                        {account.isActive ? 'Ativa' : 'Inativa'}
+                      </button>
+                    </div>
+
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          )}
+        </div>
+      </motion.div>
+
+      {/* MODAL DE CRIAÇÃO/EDIÇÃO */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeModal} className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", damping: 25 }}
+              className="relative w-full max-w-2xl bg-white rounded-[3rem] p-8 sm:p-12 shadow-2xl overflow-y-auto max-h-[90vh]"
+            >
+              <div className="flex justify-between items-start mb-10">
+                <div>
+                  <h2 className="text-3xl font-black text-slate-900 tracking-tighter mb-2">{editingAccount ? 'Editar Conta' : 'Nova Conta'}</h2>
+                  <p className="text-slate-500 font-bold text-sm">Configure o saldo inicial e a instituição.</p>
+                </div>
+                <button onClick={closeModal} className="bg-slate-50 p-3 rounded-full text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"><X size={24} /></button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-4">Nome da Conta</label>
+                    <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Nubank Principal" className="w-full text-xl font-black p-5 bg-slate-50 border border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900" />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-4">Tipo de Conta</label>
+                    <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })} className="w-full text-base font-bold p-5 bg-slate-50 border border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/10 appearance-none text-slate-700 cursor-pointer h-[68px]">
+                      <option value="checking">Conta Corrente</option>
+                      <option value="wallet">Carteira Digital</option>
+                      <option value="cash">Dinheiro Físico</option>
+                      <option value="savings">Poupança</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-4">Instituição / Banco</label>
+                    <input type="text" value={form.bank} onChange={(e) => setForm({ ...form, bank: e.target.value })} placeholder="Ex.: Itaú, Nu Pagamentos" className="w-full text-base font-bold p-5 bg-slate-50 border border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/10 transition-all text-slate-900 h-[68px]" />
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-4">Saldo Inicial (R$)</label>
+                    <div className="relative">
+                      <span className="absolute left-5 top-1/2 -translate-y-1/2 text-2xl font-black text-blue-400">R$</span>
+                      <input type="number" step="0.01" required value={form.initialBalance} onChange={(e) => setForm({ ...form, initialBalance: e.target.value })} placeholder="0.00" className="w-full text-4xl font-black text-blue-600 pl-16 p-5 bg-blue-50/50 border border-transparent rounded-2xl outline-none focus:bg-white focus:border-blue-200 focus:ring-4 focus:ring-blue-500/10 transition-all" />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 pt-6 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+                    <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl flex-1 border border-slate-100">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cor de Identificação</label>
+                      <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="w-10 h-10 rounded-xl cursor-pointer border-none bg-transparent ml-auto" />
+                    </div>
+                    
+                    <label className="flex items-center justify-between gap-4 cursor-pointer p-4 bg-slate-50 rounded-2xl flex-1 border border-slate-100 hover:bg-white transition-all">
+                      <span className="font-black text-slate-700 text-sm uppercase tracking-widest">Conta Ativa</span>
+                      <div className={`h-8 w-14 rounded-full flex items-center px-1 transition-colors ${form.isActive ? 'bg-blue-600 shadow-inner shadow-blue-800/20' : 'bg-slate-200'}`}>
+                        <div className={`h-6 w-6 bg-white rounded-full shadow-md transition-transform ${form.isActive ? 'translate-x-6' : 'translate-x-0'}`} />
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {formError && (
+                  <div className="rounded-2xl border border-rose-100 bg-rose-50 px-6 py-4 text-sm font-bold text-rose-600 flex items-center gap-3">
+                    <AlertTriangle size={20} /> {formError}
+                  </div>
+                )}
+
+                <div className="pt-6">
+                  <button type="submit" disabled={saving} className="w-full py-5 rounded-[1.5rem] bg-blue-600 text-white font-black text-xl shadow-xl shadow-blue-200 hover:scale-[1.02] active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3 transition-all">
+                    {saving ? <Loader2 className="animate-spin" size={24} /> : <><CheckCircle2 size={24} /> {editingAccount ? 'Salvar Alterações' : 'Cadastrar Conta'}</>}
                   </button>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {isModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  {editingAccount ? 'Editar conta' : 'Nova conta'}
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Cadastre a conta base para controlar saldo e origem das movimentações.
-                </p>
-              </div>
-
-              <button
-                onClick={closeModal}
-                className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-600 transition hover:bg-gray-50"
-              >
-                Fechar
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                  Nome da conta
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                  placeholder="Ex.: Nubank principal"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Tipo
-                  </label>
-                  <select
-                    value={form.type}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        type: e.target.value as AccountType,
-                      }))
-                    }
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                  >
-                    <option value="checking">Conta corrente</option>
-                    <option value="wallet">Carteira</option>
-                    <option value="cash">Dinheiro</option>
-                    <option value="savings">Poupança</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Saldo inicial
-                  </label>
-                  <input
-                    type="text"
-                    value={form.initialBalance}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        initialBalance: e.target.value,
-                      }))
-                    }
-                    placeholder="0,00"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_140px]">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Banco / instituição
-                  </label>
-                  <input
-                    type="text"
-                    value={form.bank}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, bank: e.target.value }))
-                    }
-                    placeholder="Ex.: Itaú, Inter, Caixa"
-                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700">
-                    Cor
-                  </label>
-                  <input
-                    type="color"
-                    value={form.color}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, color: e.target.value }))
-                    }
-                    className="h-[50px] w-full rounded-xl border border-gray-200 bg-white p-2"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-800">Conta ativa</p>
-                  <p className="text-xs text-gray-500">
-                    Contas inativas deixam de aparecer como opção operacional.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setForm((prev) => ({ ...prev, isActive: !prev.isActive }))
-                  }
-                  className={`relative h-7 w-12 rounded-full transition ${
-                    form.isActive ? 'bg-blue-600' : 'bg-gray-300'
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
-                      form.isActive ? 'left-6' : 'left-1'
-                    }`}
-                  />
-                </button>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-slate-900 to-slate-800 p-5 text-white">
-                <p className="text-xs uppercase tracking-[0.2em] text-white/70">
-                  Preview
-                </p>
-
-                <div className="mt-4 flex items-center gap-4">
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-md"
-                    style={{ backgroundColor: form.color || '#2563eb' }}
-                  >
-                    {(() => {
-                      const Icon = getAccountIcon(form.type);
-                      return <Icon className="h-5 w-5 text-white" />;
-                    })()}
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold">
-                      {form.name || 'Nome da conta'}
-                    </h3>
-                    <p className="text-sm text-white/70">
-                      {accountTypeLabels[form.type]}
-                      {form.bank ? ` • ${form.bank}` : ''}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <p className="text-xs text-white/60">Saldo inicial</p>
-                  <p className="text-2xl font-bold">
-                    {formatCurrency(normalizeNumber(form.initialBalance))}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {saving
-                    ? 'Salvando...'
-                    : editingAccount
-                    ? 'Salvar alterações'
-                    : 'Criar conta'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </motion.div>
           </div>
-        </div>
-      ) : null}
-    </div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

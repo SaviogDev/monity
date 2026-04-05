@@ -23,14 +23,19 @@ export interface TransactionCreditCard {
   color?: string;
   closingDay: number;
   dueDay: number;
+  limit?: number | null;
+  availableLimit?: number | null;
+  usedLimit?: number | null;
+  linkedAccount?: string | TransactionAccount | null;
 }
 
-export type PaymentMethod = 'pix' | 'debit' | 'credit' | 'cash' | 'transfer';
+export type PaymentMethod = 'pix' | 'debit' | 'credit' | 'cash' | 'transfer' | 'boleto';
 export type TransactionStatus = 'confirmed' | 'planned';
 export type TransactionType = 'income' | 'expense';
 
 export type TransactionSource =
   | 'manual'
+  | 'import'
   | 'installment'
   | 'recurrence'
   | 'salary'
@@ -65,7 +70,7 @@ export interface InstallmentPlanReference {
   totalInstallments: number;
   currentInstallment: number;
   installmentAmount: number;
-  totalAmount?: number;
+  totalAmount?: number | null;
   purchaseDate: string;
   description?: string;
   valueMode?: InstallmentValueMode;
@@ -81,6 +86,7 @@ export interface Transaction {
   creditCard: TransactionCreditCard | null;
   paymentMethod: PaymentMethod;
   transactionDate: string;
+  purchaseDate?: string | null;
   status: TransactionStatus;
   source: TransactionSource;
   notes?: string;
@@ -117,6 +123,7 @@ export interface TransactionFilters extends Record<string, unknown> {
   year?: number | string;
   startDate?: string;
   endDate?: string;
+  groupId?: string;
 }
 
 export interface TransactionPayload {
@@ -128,6 +135,7 @@ export interface TransactionPayload {
   creditCard?: string | null;
   paymentMethod: PaymentMethod;
   transactionDate: string;
+  purchaseDate?: string | null;
   status?: TransactionStatus;
   source?: TransactionSource;
   notes?: string;
@@ -158,14 +166,22 @@ interface MutationResponse<T> {
   message?: string;
 }
 
-export async function fetchTransactions(filters: TransactionFilters = {}) {
+function buildTransactionsUrl(filters: TransactionFilters = {}) {
   const query = toQueryString(filters);
+  return `/transactions${query}`;
+}
 
-  const response = await apiJson<TransactionsResponse>(`/transactions${query}`, {
+function buildTransactionsSummaryUrl(filters: TransactionFilters = {}) {
+  const query = toQueryString(filters);
+  return `/transactions/summary${query}`;
+}
+
+export async function fetchTransactions(filters: TransactionFilters = {}) {
+  const response = await apiJson<TransactionsResponse>(buildTransactionsUrl(filters), {
     method: 'GET',
   });
 
-  return response.data;
+  return Array.isArray(response.data) ? response.data : [];
 }
 
 export async function fetchTransactionById(id: string) {
@@ -177,9 +193,7 @@ export async function fetchTransactionById(id: string) {
 }
 
 export async function fetchTransactionSummary(filters: TransactionFilters = {}) {
-  const query = toQueryString(filters);
-
-  const response = await apiJson<SummaryResponse>(`/transactions/summary${query}`, {
+  const response = await apiJson<SummaryResponse>(buildTransactionsSummaryUrl(filters), {
     method: 'GET',
   });
 
@@ -205,7 +219,9 @@ export async function updateTransaction(id: string, payload: Partial<Transaction
 }
 
 export async function deleteTransaction(id: string) {
-  return apiJson<MutationResponse<{ message: string }>>(`/transactions/${id}`, {
+  const response = await apiJson<MutationResponse<{ message: string }>>(`/transactions/${id}`, {
     method: 'DELETE',
   });
+
+  return response.data;
 }

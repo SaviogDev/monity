@@ -46,3 +46,33 @@ export const remove = async (req, res, next) => {
     next(err);
   }
 };
+
+export const seedDefaults = async (req, res, next) => {
+  try {
+    const defaultCategories = [
+      { name: 'Salário', type: 'income', color: '#2ECC71' },
+      { name: 'Investimentos', type: 'income', color: '#3498DB' },
+      { name: 'Vendas', type: 'income', color: '#9B59B6' },
+      { name: 'Moradia', type: 'expense', color: '#34495E' },
+      { name: 'Alimentação', type: 'expense', color: '#E74C3C' },
+      { name: 'Transporte', type: 'expense', color: '#F1C40F' },
+      { name: 'Saúde', type: 'expense', color: '#1ABC9C' },
+      { name: 'Educação', type: 'expense', color: '#2980B9' },
+      { name: 'Lazer', type: 'expense', color: '#E67E22' },
+      { name: 'Assinaturas', type: 'expense', color: '#8E44AD' },
+      { name: 'Cartão de Crédito', type: 'expense', color: '#D35400' }
+    ];
+
+    const createdCategories = await Promise.all(
+      defaultCategories.map(cat => categoryService.create(cat, req.user._id))
+    );
+
+    res.status(201).json({ 
+      success: true, 
+      message: 'Categorias essenciais criadas com sucesso', 
+      data: createdCategories 
+    });
+  } catch (err) {
+    next(err);
+  }
+};

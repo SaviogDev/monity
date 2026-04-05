@@ -12,6 +12,14 @@ const auth = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
+
+    // =========================================================
+    // LOGS TEMPORÁRIOS DE DEBUG - Olhe o terminal após o erro!
+    // =========================================================
+    console.log("🔑 Token recebido:", token);
+    console.log("🔒 JWT_SECRET carregado?", process.env.JWT_SECRET ? "SIM" : "NÃO (Undefined!)");
+    // =========================================================
+
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.id).select('-password');

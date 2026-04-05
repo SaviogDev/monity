@@ -27,11 +27,6 @@ export interface FinancialProjection {
   currentBalance: number;
   futureBalance: number;
   cards: FinancialProjectionCard[];
-
-  /**
-   * Campos preparados para evolução do motor financeiro.
-   * O backend atual pode ainda não retornar isso.
-   */
   recurringImpact?: FinancialProjectionRecurringImpact | null;
   installmentImpact?: FinancialProjectionInstallmentImpact | null;
   financingImpact?: FinancialProjectionFinancingImpact | null;
@@ -39,14 +34,73 @@ export interface FinancialProjection {
 
 interface FinancialProjectionResponse {
   success: boolean;
-  data: FinancialProjection;
+  data?: FinancialProjection | null;
   message?: string;
 }
 
-export async function fetchFinancialProjection() {
-  const response = await apiJson<FinancialProjectionResponse>(
-    '/financial/projection'
-  );
+function normalizeProjectionCard(card: FinancialProjectionCard): FinancialProjectionCard {
+  return {
+    ...card,
+    limit: Number(card.limit || 0),
+    committed: Number(card.committed || 0),
+    available: Number(card.available || 0),
+  };
+}
 
-  return response.data;
+function normalizeRecurringImpact(
+  impact?: FinancialProjectionRecurringImpact | null
+): FinancialProjectionRecurringImpact | null {
+  if (!impact) return null;
+
+  return {
+    monthlyIncome: Number(impact.monthlyIncome || 0),
+    monthlyExpense: Number(impact.monthlyExpense || 0),
+  };
+}
+
+function normalizeInstallmentImpact(
+  impact?: FinancialProjectionInstallmentImpact | null
+): FinancialProjectionInstallmentImpact | null {
+  if (!impact) return null;
+
+  return {
+    openInstallments: Number(impact.openInstallments || 0),
+    monthlyCommitted: Number(impact.monthlyCommitted || 0),
+  };
+}
+
+function normalizeFinancingImpact(
+  impact?: FinancialProjectionFinancingImpact | null
+): FinancialProjectionFinancingImpact | null {
+  if (!impact) return null;
+
+  return {
+    activeFinancings: Number(impact.activeFinancings || 0),
+    monthlyCommitted: Number(impact.monthlyCommitted || 0),
+  };
+}
+
+function normalizeProjection(
+  projection?: FinancialProjection | null
+): FinancialProjection | null {
+  if (!projection) return null;
+
+  return {
+    currentBalance: Number(projection.currentBalance || 0),
+    futureBalance: Number(projection.futureBalance || 0),
+    cards: Array.isArray(projection.cards)
+      ? projection.cards.map(normalizeProjectionCard)
+      : [],
+    recurringImpact: normalizeRecurringImpact(projection.recurringImpact),
+    installmentImpact: normalizeInstallmentImpact(projection.installmentImpact),
+    financingImpact: normalizeFinancingImpact(projection.financingImpact),
+  };
+}
+
+export async function fetchFinancialProjection(): Promise<FinancialProjection | null> {
+  const response = await apiJson<FinancialProjectionResponse>('/financial/projection', {
+    method: 'GET',
+  });
+
+  return normalizeProjection(response.data);
 }

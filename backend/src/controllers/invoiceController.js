@@ -2,7 +2,17 @@ import { getInvoices, getInvoiceByCardAndMonth } from '../services/invoiceServic
 
 export async function getInvoicesController(req, res, next) {
   try {
-    const data = await getInvoices(req.user.id);
+    // Opcional chaining (?.) garante que o Node não vai crashar se req.user vier vazio
+    const userId = req.user?.id || req.user?._id || req.userId;
+    
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Acesso negado. Usuário não identificado pelo token.' 
+      });
+    }
+
+    const data = await getInvoices(userId);
 
     return res.json({
       success: true,
@@ -15,8 +25,17 @@ export async function getInvoicesController(req, res, next) {
 
 export async function getInvoiceByCardAndMonthController(req, res, next) {
   try {
+    const userId = req.user?.id || req.user?._id || req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        message: 'Acesso negado. Usuário não identificado pelo token.' 
+      });
+    }
+
     const data = await getInvoiceByCardAndMonth(
-      req.user.id,
+      userId,
       req.params.cardId,
       req.params.monthKey
     );

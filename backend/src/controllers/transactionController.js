@@ -7,10 +7,7 @@ export const getTransactions = async (req, res, next) => {
       filters: req.query,
     });
 
-    res.status(200).json({
-      success: true,
-      data: transactions,
-    });
+    res.status(200).json({ success: true, data: transactions });
   } catch (err) {
     next(err);
   }
@@ -23,10 +20,7 @@ export const getTransactionById = async (req, res, next) => {
       transactionId: req.params.id,
     });
 
-    res.status(200).json({
-      success: true,
-      data: transaction,
-    });
+    res.status(200).json({ success: true, data: transaction });
   } catch (err) {
     next(err);
   }
@@ -39,20 +33,9 @@ export const createTransaction = async (req, res, next) => {
       payload: req.body,
     });
 
-    const isRecurring = Boolean(req.body?.isRecurring);
-    const isInstallment = Boolean(req.body?.isInstallment);
-
-    let message = 'Transação criada com sucesso';
-
-    if (isRecurring) {
-      message = 'Transação recorrente criada com sucesso';
-    } else if (isInstallment) {
-      message = 'Transação parcelada criada com sucesso';
-    }
-
     res.status(201).json({
       success: true,
-      message,
+      message: 'Lançamento criado com sucesso!',
       data: transaction,
     });
   } catch (err) {
@@ -68,20 +51,9 @@ export const updateTransaction = async (req, res, next) => {
       payload: req.body,
     });
 
-    const isRecurring = Boolean(req.body?.isRecurring);
-    const isInstallment = Boolean(req.body?.isInstallment);
-
-    let message = 'Transação atualizada com sucesso';
-
-    if (isRecurring) {
-      message = 'Transação recorrente atualizada com sucesso';
-    } else if (isInstallment) {
-      message = 'Transação parcelada atualizada com sucesso';
-    }
-
     res.status(200).json({
       success: true,
-      message,
+      message: 'Atualizado com sucesso',
       data: transaction,
     });
   } catch (err) {
@@ -98,7 +70,7 @@ export const deleteTransaction = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: result.message,
+      message: 'Excluído com sucesso',
       data: result,
     });
   } catch (err) {
@@ -113,9 +85,24 @@ export const getTransactionSummary = async (req, res, next) => {
       filters: req.query,
     });
 
+    res.status(200).json({ success: true, data: summary });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const importTransactions = async (req, res, next) => {
+  try {
+    const result = await transactionService.importFromUpload({
+      userId: req.user?._id || req.user?.id,
+      file: req.file,
+      body: req.body,
+    });
+
     res.status(200).json({
       success: true,
-      data: summary,
+      message: 'Importação concluída com sucesso.',
+      data: result,
     });
   } catch (err) {
     next(err);

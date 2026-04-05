@@ -2,6 +2,7 @@ import Transaction from '../models/Transaction.js';
 import CreditCard from '../models/CreditCard.js';
 
 function toMonthKey(dateInput) {
+  if (!dateInput) return null;
   const date = new Date(dateInput);
   if (Number.isNaN(date.getTime())) return null;
 
@@ -30,8 +31,8 @@ export async function getInvoices(userId) {
       type: 'expense',
     })
       .populate('category', 'name type color icon')
-      .populate('creditCard', 'name bankCode color closingDay dueDay')
-      .sort({ competencyDate: -1, transactionDate: 1 })
+      .populate('creditCard', 'name bankCode color closingDay dueDay limit')
+      .sort({ competencyDate: -1, transactionDate: -1 }) // Ordena as mais recentes primeiro
       .lean(),
     CreditCard.find({
       user: userId,
@@ -40,14 +41,24 @@ export async function getInvoices(userId) {
   ]);
 
   const invoiceMap = new Map();
+  const cardPlannedTotals = new Map(); // Guarda a soma de TUDO que está pendente no cartão
 
   for (const transaction of transactions) {
     if (!transaction.creditCard?._id) continue;
 
-    const monthKey = toMonthKey(transaction.competencyDate);
+    const cardId = String(transaction.creditCard._id);
+
+    // Soma TODAS as compras "planejadas" (em aberto) para abater do limite global do cartão
+    if (transaction.status === 'planned') {
+      const currentPlanned = cardPlannedTotals.get(cardId) || 0;
+      cardPlannedTotals.set(cardId, currentPlanned + transaction.amount);
+    }
+
+    // Fallback: se não tiver competencyDate (fatura), usa a data da transação
+    const dateToUse = transaction.competencyDate || transaction.transactionDate;
+    const monthKey = toMonthKey(dateToUse);
     if (!monthKey) continue;
 
-    const cardId = String(transaction.creditCard._id);
     const invoiceKey = `${cardId}::${monthKey}`;
 
     if (!invoiceMap.has(invoiceKey)) {
@@ -84,26 +95,29 @@ export async function getInvoices(userId) {
 
   const invoices = Array.from(invoiceMap.values())
     .map((invoice) => {
-      const status =
-        invoice.plannedTotal > 0 && invoice.confirmedTotal > 0
-          ? 'partial'
-          : invoice.plannedTotal > 0
-          ? 'open'
-          : 'closed';
+      // Cálculo do Status da Fatura mais seguro
+      let status = 'open';
+      if (invoice.plannedTotal === 0 && invoice.confirmedTotal > 0) {
+        status = 'closed'; // Tudo pago
+      } else if (invoice.plannedTotal > 0 && invoice.confirmedTotal > 0) {
+        status = 'partial'; // Pagou algumas coisas, outras ainda não
+      }
+
+      // Calcula o Limite Disponível Real (Limite Total - Tudo que está 'planned' nesse cartão no futuro)
+      const card = cards.find((item) => String(item._id) === invoice.cardId);
+      const limit = card?.limit || 0;
+      const globalPlannedForCard = cardPlannedTotals.get(invoice.cardId) || 0;
 
       return {
         ...invoice,
-        availableCardLimit: (() => {
-          const card = cards.find((item) => String(item._id) === invoice.cardId);
-          const limit = card?.limit || 0;
-          return limit - invoice.plannedTotal;
-        })(),
+        status,
+        availableCardLimit: Math.max(0, limit - globalPlannedForCard),
       };
     })
     .sort((a, b) => {
       const monthCompare = new Date(b.competencyDate).getTime() - new Date(a.competencyDate).getTime();
-      if (monthCompare !== 0) return monthCompare;
-      return a.cardName.localeCompare(b.cardName, 'pt-BR');
+      if (monthCompare !== 0) return monthCompare; // Ordena por data mais recente
+      return a.cardName.localeCompare(b.cardName, 'pt-BR'); // Desempata por ordem alfabética do cartão
     });
 
   return invoices;
