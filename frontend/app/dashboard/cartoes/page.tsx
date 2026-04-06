@@ -168,14 +168,17 @@ function getCycleInfo(card: Pick<CreditCard, 'closingDay' | 'dueDay'>, reference
 
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message.trim()) return error.message;
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'response' in error &&
-    typeof (error as any).response?.data?.message === 'string'
-  ) {
-    return (error as any).response.data.message;
+
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const typedError = error as {
+      response?: { data?: { message?: unknown } };
+    };
+
+    if (typeof typedError.response?.data?.message === 'string') {
+      return typedError.response.data.message;
+    }
   }
+
   return fallback;
 }
 

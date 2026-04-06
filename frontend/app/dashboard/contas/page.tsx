@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -197,8 +197,9 @@ export default function ContasPage() {
 
       await loadAll();
       closeModal();
-    } catch (err: any) {
-      setFormError(err.message || 'Erro ao salvar a conta.');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao salvar a conta.';
+      setFormError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -211,7 +212,7 @@ export default function ContasPage() {
       await deleteAccount(id);
       await loadAll();
       toast.success('Conta excluída com sucesso!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error('Erro ao excluir a conta.');
     } finally {
       setDeletingId(null);
@@ -298,14 +299,14 @@ export default function ContasPage() {
           </div>
           
           <div className="flex items-center gap-3">
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as any)} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white font-black text-xs uppercase tracking-widest text-slate-600 outline-none focus:ring-4 focus:ring-blue-500/10 cursor-pointer">
+            <select value={typeFilter} onChange={(e: ChangeEvent<HTMLSelectElement>) => setTypeFilter(e.target.value as 'all' | AccountType)} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white font-black text-xs uppercase tracking-widest text-slate-600 outline-none focus:ring-4 focus:ring-blue-500/10 cursor-pointer">
               <option value="all">Todos os Tipos</option>
               <option value="checking">Conta Corrente</option>
               <option value="wallet">Carteira</option>
               <option value="cash">Dinheiro</option>
               <option value="savings">Poupança</option>
             </select>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as any)} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white font-black text-xs uppercase tracking-widest text-slate-600 outline-none focus:ring-4 focus:ring-blue-500/10 cursor-pointer">
+            <select value={statusFilter} onChange={(e: ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')} className="px-5 py-3.5 rounded-2xl border border-slate-200 bg-white font-black text-xs uppercase tracking-widest text-slate-600 outline-none focus:ring-4 focus:ring-blue-500/10 cursor-pointer">
               <option value="all">Todos os Status</option>
               <option value="active">Apenas Ativas</option>
               <option value="inactive">Apenas Inativas</option>

@@ -28,7 +28,7 @@ const containerVariants = {
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } }
-};
+} as const;
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
@@ -112,8 +112,9 @@ export default function GoalsPage() {
       
       await loadData();
       await loadAll();
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Erro na transação');
+    } catch (error: unknown) {
+      const apiError = error as { response?: { data?: { message?: string } } };
+      toast.error(apiError.response?.data?.message || 'Erro na transação');
     } finally {
       setIsSubmitting(false);
     }
