@@ -136,7 +136,7 @@ interface FinancingItem extends Financing {
   _id: string;
   groupId?: string | null;
   description?: string;
-  amount?: number;
+  amount: number; // CORREÇÃO: Removido o "?" para respeitar o tipo base
   transactionDate?: string | null;
   purchaseDate?: string | null;
   status?: 'confirmed' | 'planned' | string;
