@@ -3,6 +3,16 @@ import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+interface Transaction {
+  transactionDate: string | number | Date;
+  description?: string;
+  category?: {
+    name: string;
+  };
+  type: 'income' | 'expense';
+  amount: number;
+}
+
 interface ReportData {
   month: number;
   year: number;
@@ -12,7 +22,7 @@ interface ReportData {
     expense: number;
     freeMargin: number;
   };
-  transactions: any[];
+  transactions: Transaction[];
 }
 
 function formatCurrency(value: number) {
@@ -110,7 +120,7 @@ export function generateMonthlyPDF(data: ReportData) {
     },
     didParseCell: function(data) {
       // Pinta o valor de verde ou vermelho dependendo do tipo
-      if (data.section === 'body' && data.column.index === 4) {
+      if (data.section === 'body' && data.column.index === 4 && Array.isArray(data.row.raw)) {
         const type = data.row.raw[3];
         if (type === '+') {
           data.cell.styles.textColor = [46, 204, 113]; // Verde
@@ -122,7 +132,7 @@ export function generateMonthlyPDF(data: ReportData) {
   });
 
   // Rodapé
-  const pageCount = (doc as never).internal.getNumberOfPages();
+  const pageCount = doc.internal.pages.length;
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     doc.setFontSize(8);
