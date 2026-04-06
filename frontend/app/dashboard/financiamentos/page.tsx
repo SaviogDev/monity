@@ -133,7 +133,7 @@ interface FinancingInstallmentPlan {
   purchaseDate?: string | null;
 }
 
-interface FinancingItem extends Omit<Financing, 'category' | 'account' | 'status' | 'transactionDate'> {
+interface FinancingItem extends Omit<Financing, 'category' | 'account' | 'status' | 'transactionDate' | 'installmentPlan'> {
   _id: string;
   groupId?: string | null;
   description?: string;
