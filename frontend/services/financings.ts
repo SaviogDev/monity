@@ -66,6 +66,17 @@ function getNumeric(value: unknown) {
   return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function getInstallmentPlanValue(
+  installmentPlan: unknown,
+  key: 'installmentAmount' | 'currentInstallment' | 'totalInstallments'
+) {
+  if (typeof installmentPlan === 'object' && installmentPlan !== null && !Array.isArray(installmentPlan)) {
+    return getNumeric((installmentPlan as Record<string, unknown>)[key]);
+  }
+
+  return 0;
+}
+
 function getGroupKey(financing: Financing) {
   return financing.groupId || financing._id;
 }
@@ -124,7 +135,7 @@ function buildFinancingSummary(financings: Financing[]): FinancingSummary {
     groups.reduce((sum, group) => {
       const representative = group.items[0];
       const installmentAmount =
-        getNumeric(representative.installmentPlan?.installmentAmount) ||
+        getInstallmentPlanValue(representative.installmentPlan, 'installmentAmount') ||
         getNumeric(representative.amount);
 
       return sum + installmentAmount;
@@ -317,12 +328,12 @@ export function summarizeFinancingGroup(financings: Financing[]) {
   const items = firstGroup.items;
   const representative = items[0];
   const installmentValue =
-    getNumeric(representative.installmentPlan?.installmentAmount) ||
+    getInstallmentPlanValue(representative.installmentPlan, 'installmentAmount') ||
     getNumeric(representative.amount);
 
   const totalInstallments =
     getNumeric(representative.installmentCount) ||
-    getNumeric(representative.installmentPlan?.totalInstallments);
+    getInstallmentPlanValue(representative.installmentPlan, 'totalInstallments');
 
   const paidInstallments = items.filter((item) => item.status === 'confirmed').length;
   const remainingInstallments = items.filter((item) => item.status === 'planned').length;
@@ -347,9 +358,9 @@ export function summarizeFinancingGroup(financings: Financing[]) {
     installmentValue,
     totalInstallments,
     currentInstallment:
-      getNumeric(representative.installmentPlan?.currentInstallment) ||
-      getNumeric(representative.installmentIndex) ||
-      1,
+        getInstallmentPlanValue(representative.installmentPlan, 'currentInstallment') ||
+        getNumeric(representative.installmentIndex) ||
+        1,
     paidInstallments,
     remainingInstallments,
     totalDebt,
