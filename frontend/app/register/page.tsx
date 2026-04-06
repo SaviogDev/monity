@@ -9,6 +9,7 @@ interface FormState {
   email: string;
   password: string;
   confirmPassword: string;
+  inviteCode: string; // <-- ADICIONADO
 }
 
 interface RegisterResponse {
@@ -246,6 +247,7 @@ export default function RegisterPage() {
     email: '',
     password: '',
     confirmPassword: '',
+    inviteCode: '', // <-- INICIADO VAZIO
   });
 
   const [loading, setLoading] = useState(false);
@@ -262,7 +264,8 @@ export default function RegisterPage() {
       form.name.trim().length > 1 &&
       form.email.trim().length > 0 &&
       form.password.length >= 6 &&
-      form.password === form.confirmPassword
+      form.password === form.confirmPassword &&
+      form.inviteCode.trim().length > 0 // <-- VALIDAÇÃO ADICIONADA
     );
   }, [form]);
 
@@ -309,6 +312,7 @@ export default function RegisterPage() {
           name: form.name.trim(),
           email: form.email.trim(),
           password: form.password,
+          inviteCode: form.inviteCode.trim().toUpperCase(), // <-- ENVIANDO PARA O BACKEND
         }),
       });
 
@@ -318,17 +322,12 @@ export default function RegisterPage() {
         throw new Error(data?.message || 'Erro ao criar conta.');
       }
 
-      const token = data?.data?.token || data?.token;
-
-      if (token) {
-        localStorage.setItem('monity_token', token);
-      }
-
       setSuccess(true);
 
+      // Redireciona para a tela de Verificação enviando o e-mail pela URL
       setTimeout(() => {
-        router.push('/login');
-      }, 1000);
+        router.push(`/verify?email=${encodeURIComponent(form.email.trim())}`);
+      }, 2000); // 2 segundos para o usuário ler a mensagem de sucesso
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -884,9 +883,9 @@ export default function RegisterPage() {
 
               <p className="success-title">Conta criada! 🎉</p>
               <p className="success-sub">
-                Seu cadastro foi realizado com sucesso.
+                Enviamos um código de verificação para o seu e-mail.
                 <br />
-                Redirecionando para o login...
+                Redirecionando para validação...
               </p>
             </div>
           ) : (
@@ -920,6 +919,15 @@ export default function RegisterPage() {
                   value={form.email}
                   onChange={setField('email')}
                   autoComplete="email"
+                  disabled={loading}
+                />
+
+                {/* NOVO CAMPO: CÓDIGO DE CONVITE */}
+                <FloatingLabel
+                  id="inviteCode"
+                  label="Código de Convite (VIP)"
+                  value={form.inviteCode}
+                  onChange={setField('inviteCode')}
                   disabled={loading}
                 />
 

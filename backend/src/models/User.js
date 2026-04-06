@@ -23,10 +23,20 @@ const userSchema = new mongoose.Schema(
       minlength: [6, 'Senha deve ter no mínimo 6 caracteres'],
       select: false,
     },
-    // NOVO CAMPO: Guarda o link da imagem gerado pelo Firebase
     avatarUrl: {
       type: String,
       default: null,
+    },
+    // --- NOVOS CAMPOS PARA CONVITE E E-MAIL ---
+    isVerified: {
+      type: Boolean,
+      default: false, // O usuário nasce "bloqueado" até colocar o código
+    },
+    verificationCode: {
+      type: String,
+    },
+    verificationCodeExpires: {
+      type: Date,
     },
   },
   {
@@ -44,7 +54,6 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-const User =
-  mongoose.models.User || mongoose.model('User', userSchema);
+const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 export default User;

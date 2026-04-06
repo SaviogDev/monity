@@ -5,7 +5,6 @@ import {
   setToken as setStoredToken,
 } from './api';
 
-// ATUALIZADO: Adicionada a propriedade avatarUrl na interface principal
 export interface AuthUser {
   id: string;
   name: string;
@@ -13,7 +12,6 @@ export interface AuthUser {
   avatarUrl?: string; 
 }
 
-// ATUALIZADO: Adicionada a propriedade avatarUrl na interface bruta do banco
 interface RawAuthUser {
   id?: string;
   _id?: string;
@@ -58,8 +56,10 @@ export interface LoginInput {
   password: string;
 }
 
+// ATUALIZADO: Adicionado o inviteCode obrigatório para o cadastro
 export interface RegisterInput extends LoginInput {
   name: string;
+  inviteCode: string; 
 }
 
 export interface UpdateMeInput {
@@ -75,13 +75,12 @@ export const getToken = getStoredToken;
 export const setToken = setStoredToken;
 export const clearToken = clearStoredToken;
 
-// ATUALIZADO: A função normalizeUser agora repassa o avatarUrl para o Frontend
 function normalizeUser(user?: RawAuthUser | null): AuthUser {
   return {
     id: String(user?.id || user?._id || ''),
     name: String(user?.name || ''),
     email: String(user?.email || ''),
-    avatarUrl: user?.avatarUrl, // Mapeia o campo vindo do banco/API
+    avatarUrl: user?.avatarUrl,
   };
 }
 
@@ -122,9 +121,8 @@ export async function register(payload: RegisterInput): Promise<AuthPayload> {
     user: normalizeUser(response.data?.user),
   };
 
-  if (data.token) {
-    setToken(data.token);
-  }
+  // ATENÇÃO: Removido o 'setToken(data.token)' daqui. 
+  // O usuário agora precisa verificar o e-mail antes de ganhar o acesso!
 
   return data;
 }
@@ -159,4 +157,14 @@ export async function updatePassword(
 
 export function logout() {
   clearToken();
+}
+
+// ATUALIZADO: Nova função para enviar o código do e-mail para o backend
+export async function verifyEmailCode(email: string, code: string) {
+  const response = await apiJson('/auth/verify-email', {
+    method: 'POST',
+    auth: false,
+    body: JSON.stringify({ email, code }),
+  });
+  return response;
 }

@@ -7,7 +7,8 @@ const generateToken = (userId) => {
   });
 };
 
-export const register = async ({ name, email, password }) => {
+// 1. ATUALIZADO: Agora recebe os dados do código gerados no Controller
+export const register = async ({ name, email, password, verificationCode, verificationCodeExpires }) => {
   const existingUser = await User.findOne({ email });
   if (existingUser) {
     const error = new Error('E-mail já cadastrado');
@@ -15,7 +16,15 @@ export const register = async ({ name, email, password }) => {
     throw error;
   }
 
-  const user = await User.create({ name, email, password });
+  // Salva o usuário no banco com o código e a validade
+  const user = await User.create({ 
+    name, 
+    email, 
+    password,
+    verificationCode,
+    verificationCodeExpires
+  });
+  
   const token = generateToken(user._id);
 
   return {
@@ -24,6 +33,7 @@ export const register = async ({ name, email, password }) => {
       id: user._id,
       name: user.name,
       email: user.email,
+      isVerified: user.isVerified, // Devolvemos o status (falso por padrão)
     },
   };
 };
@@ -37,6 +47,13 @@ export const login = async ({ email, password }) => {
     throw error;
   }
 
+  // 2. NOVA TRAVA: Impede o login se o e-mail não estiver verificado
+  if (!user.isVerified) {
+    const error = new Error('Por favor, verifique seu e-mail usando o código enviado antes de entrar.');
+    error.statusCode = 403; // 403 Forbidden
+    throw error;
+  }
+
   const token = generateToken(user._id);
 
   return {
@@ -45,6 +62,7 @@ export const login = async ({ email, password }) => {
       id: user._id,
       name: user.name,
       email: user.email,
+      isVerified: user.isVerified,
     },
   };
 };
