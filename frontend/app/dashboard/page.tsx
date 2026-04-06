@@ -338,6 +338,8 @@ export default function DashboardPage() {
     async (showErrorToast = false) => {
       try {
         await loadAll();
+        const accs = await fetchAccounts();
+        setAccounts(accs);
       } catch {
         if (showErrorToast) {
           toast.error('Não foi possível sincronizar o dashboard.');
@@ -452,7 +454,15 @@ export default function DashboardPage() {
     });
   }, [safeTransactions]);
 
-  const recentTransactions = useMemo(() => sortedTransactions.slice(0, 5), [sortedTransactions]);
+  const recentTransactions = useMemo(() => {
+    return sortedTransactions.filter((transaction) => {
+      const date = parseDateLikeUTC(transaction.transactionDate || transaction.purchaseDate);
+      if (!date) return false;
+      
+      const time = date.getTime();
+      return time >= monthStart.getTime() && time <= monthEnd.getTime();
+    }).slice(0, 5);
+  }, [sortedTransactions, monthStart, monthEnd]);
 
   const monthSummary = useMemo(() => {
     let income = 0;

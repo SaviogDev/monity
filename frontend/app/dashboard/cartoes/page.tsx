@@ -53,6 +53,14 @@ interface AccountOption {
   isActive: boolean;
 }
 
+// Nova interface para mapear as transações e calcular o limite dinamicamente
+interface CardTransactionBase {
+  type: string;
+  amount?: number;
+  paymentMethod?: string;
+  creditCard?: string | { _id?: string } | null;
+}
+
 const INITIAL_FORM: CreditCardFormState = {
   name: '',
   bankCode: '',
@@ -182,30 +190,49 @@ function getErrorMessage(error: unknown, fallback: string) {
   return fallback;
 }
 
+// Funções de Limite (AGORA DINÂMICAS COM BASE NO USO REAL)
 function getTotalLimit(card: CreditCard) {
   const value = Number(card.limit ?? 0);
   return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
-function getAvailableLimit(card: CreditCard) {
+function getUsedLimit(card: CreditCard, transactions: CardTransactionBase[]) {
+  const cardId = String(card._id);
+  let used = 0;
+
+  for (const t of transactions) {
+    let tCardId = '';
+    
+    if (typeof t.creditCard === 'string') {
+      tCardId = t.creditCard;
+    } else if (t.creditCard && typeof t.creditCard === 'object' && '_id' in t.creditCard) {
+      tCardId = String(t.creditCard._id);
+    }
+
+    // Se foi pago no crédito E foi neste cartão exato
+    if (t.paymentMethod === 'credit' && tCardId === cardId) {
+      if (t.type === 'expense') {
+        used += Number(t.amount || 0);
+      } else if (t.type === 'income') {
+        used -= Number(t.amount || 0); // Desconta caso haja estorno/pagamento de fatura
+      }
+    }
+  }
+
+  return Math.max(0, used);
+}
+
+function getAvailableLimit(card: CreditCard, transactions: CardTransactionBase[]) {
   const total = getTotalLimit(card);
-  const raw = Number(card.availableLimit ?? total);
-
-  if (!Number.isFinite(raw)) return total;
-  if (raw < 0) return 0;
-  if (raw > total) return total;
-
-  return raw;
+  const used = getUsedLimit(card, transactions);
+  return Math.max(0, total - used);
 }
 
-function getUsedLimit(card: CreditCard) {
-  return Math.max(getTotalLimit(card) - getAvailableLimit(card), 0);
-}
-
-function getUsagePercent(card: CreditCard) {
+function getUsagePercent(card: CreditCard, transactions: CardTransactionBase[]) {
   const total = getTotalLimit(card);
   if (total <= 0) return 0;
-  return Math.min(100, Math.max(0, (getUsedLimit(card) / total) * 100));
+  const used = getUsedLimit(card, transactions);
+  return Math.min(100, Math.max(0, (used / total) * 100));
 }
 
 function MetricCard({
@@ -279,7 +306,12 @@ export default function CreditCardsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const { accounts, loadAll } = useFinancialStore();
+  // Agora extraímos também as transações do Store global para calcular a fatura viva!
+  const { accounts, transactions = [], loadAll } = useFinancialStore();
+
+  const safeTransactions = useMemo(() => {
+    return Array.isArray(transactions) ? (transactions as CardTransactionBase[]) : [];
+  }, [transactions]);
 
   const accountOptions = useMemo(() => {
     const safeAccounts = ((accounts || []) as AccountOption[]).filter(Boolean);
@@ -336,8 +368,8 @@ export default function CreditCardsPage() {
   const stats = useMemo(() => {
     const activeCards = cards.filter((card) => card.isActive);
     const totalLimit = cards.reduce((sum, card) => sum + getTotalLimit(card), 0);
-    const totalAvailable = cards.reduce((sum, card) => sum + getAvailableLimit(card), 0);
-    const totalUsed = cards.reduce((sum, card) => sum + getUsedLimit(card), 0);
+    const totalAvailable = cards.reduce((sum, card) => sum + getAvailableLimit(card, safeTransactions), 0);
+    const totalUsed = cards.reduce((sum, card) => sum + getUsedLimit(card, safeTransactions), 0);
 
     return {
       total: cards.length,
@@ -347,7 +379,7 @@ export default function CreditCardsPage() {
       totalAvailable,
       totalUsed,
     };
-  }, [cards]);
+  }, [cards, safeTransactions]);
 
   function openCreateModal() {
     setEditingCard(null);
@@ -599,9 +631,9 @@ export default function CreditCardsPage() {
               {filteredCards.map((card) => {
                 const cycle = getCycleInfo(card);
                 const totalLimit = getTotalLimit(card);
-                const availableLimit = getAvailableLimit(card);
-                const usedLimit = getUsedLimit(card);
-                const usagePercent = getUsagePercent(card);
+                const usedLimit = getUsedLimit(card, safeTransactions);
+                const availableLimit = getAvailableLimit(card, safeTransactions);
+                const usagePercent = getUsagePercent(card, safeTransactions);
 
                 return (
                   <motion.div

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, type Variants } from 'framer-motion';
 import { toast } from 'sonner';
@@ -23,9 +23,15 @@ import {
   Eye,
   FileBarChart2,
   BadgeCheck,
+  Camera,
+  Loader2,
 } from 'lucide-react';
 
 import { clearToken, fetchMe } from '@/services/auth';
+
+// IMPORTAÇÕES DO FIREBASE (Ajuste o caminho conforme o seu projeto)
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/services/firebase';
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -48,6 +54,7 @@ type ProfileUser = {
   id: string;
   name: string;
   email: string;
+  avatarUrl?: string; // NOVO: Propriedade para a foto
 };
 
 type PreferencesState = {
@@ -115,9 +122,11 @@ function Switch({
 
 export default function ProfilePage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [user, setUser] = useState<ProfileUser | null>(null);
 
   const [preferences, setPreferences] = useState<PreferencesState>({
@@ -130,13 +139,13 @@ export default function ProfilePage() {
     async function loadUser() {
       try {
         setLoading(true);
-
         const data = await fetchMe();
 
         setUser({
           id: data.id,
           name: data.name,
           email: data.email,
+          avatarUrl: (data as { avatarUrl?: string }).avatarUrl, // Puxa a imagem se existir no banco
         });
       } catch {
         clearToken();
@@ -176,6 +185,39 @@ export default function ProfilePage() {
       router.replace('/login');
     } finally {
       setLoggingOut(false);
+    }
+  }
+
+  // --- NOVA FUNÇÃO DE UPLOAD PARA O FIREBASE ---
+  async function handleAvatarUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file || !user) return;
+
+    try {
+      setUploadingAvatar(true);
+
+      // 1. Criar a referência de onde salvar no Firebase (pasta 'avatars')
+      const fileRef = ref(storage, `avatars/${user.id}-${Date.now()}`);
+
+      // 2. Fazer o upload do arquivo
+      await uploadBytes(fileRef, file);
+
+      // 3. Pegar a URL pública da imagem que acabou de ser salva
+      const downloadUrl = await getDownloadURL(fileRef);
+
+      // 4. Aqui você deve chamar a API do seu Backend para salvar essa URL no banco do usuário
+      // Exemplo: await updateProfileInBackend({ avatarUrl: downloadUrl });
+
+      // 5. Atualizar a imagem na tela instantaneamente
+      setUser((prev) => (prev ? { ...prev, avatarUrl: downloadUrl } : prev));
+      toast.success('Foto de perfil atualizada com sucesso!');
+    } catch (error) {
+      console.error('Erro no upload:', error);
+      toast.error('Erro ao enviar a imagem. Tente novamente.');
+    } finally {
+      setUploadingAvatar(false);
+      // Limpa o input para permitir enviar a mesma imagem novamente se necessário
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
 
@@ -263,14 +305,40 @@ export default function ProfilePage() {
 
         <div className="relative z-10 flex flex-col gap-8 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+            
+            {/* --- AVATAR E UPLOAD --- */}
             <div className="relative">
-              <div className="h-28 w-28 rounded-full bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 p-1.5 shadow-2xl shadow-blue-500/30 sm:h-32 sm:w-32">
-                <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-3xl font-black text-slate-900 sm:text-4xl">
-                  {getInitials(user?.name)}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleAvatarUpload} 
+                accept="image/*" 
+                className="hidden" 
+              />
+              
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="group relative h-28 w-28 cursor-pointer overflow-hidden rounded-full bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 p-1.5 shadow-2xl shadow-blue-500/30 transition-transform hover:scale-105 sm:h-32 sm:w-32"
+              >
+                <div className="relative flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-white text-3xl font-black text-slate-900 sm:text-4xl">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+                  ) : (
+                    getInitials(user?.name)
+                  )}
+                  
+                  {/* Máscara escura com o ícone de câmera ao passar o mouse */}
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 opacity-0 transition-opacity group-hover:opacity-100">
+                    {uploadingAvatar ? (
+                      <Loader2 className="animate-spin text-white" size={28} />
+                    ) : (
+                      <Camera className="text-white" size={28} />
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="absolute -bottom-1 -right-1 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-emerald-500 shadow-lg">
+              <div className="absolute -bottom-1 -right-1 z-10 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-emerald-500 shadow-lg">
                 <BadgeCheck size={18} className="text-white" strokeWidth={2.8} />
               </div>
             </div>
