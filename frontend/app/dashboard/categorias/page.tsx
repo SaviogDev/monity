@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   Tags,
@@ -25,12 +25,13 @@ import {
   type Category,
 } from '@/services/categories';
 
-const containerVariants = {
+// Tipagem adicionada aqui para o TypeScript da Vercel passar liso!
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.05 } },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 15 },
   show: {
     opacity: 1,
