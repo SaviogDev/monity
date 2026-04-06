@@ -132,11 +132,13 @@ interface FinancingInstallmentPlan {
   purchaseDate?: string | null;
 }
 
-interface FinancingItem extends Financing {
+// CORREÇÃO DEFINITIVA: Usando Omit para o TypeScript ignorar os tipos rígidos do Backend 
+// nas propriedades 'category' e 'account' e aceitar a nossa flexibilidade.
+interface FinancingItem extends Omit<Financing, 'category' | 'account'> {
   _id: string;
   groupId?: string | null;
   description?: string;
-  amount: number; // CORREÇÃO: Removido o "?" para respeitar o tipo base
+  amount: number;
   transactionDate?: string | null;
   purchaseDate?: string | null;
   status?: 'confirmed' | 'planned' | string;
