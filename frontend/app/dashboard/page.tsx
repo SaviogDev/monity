@@ -40,7 +40,7 @@ import { fetchMe } from '@/services/auth';
 
 type TransactionType = 'income' | 'expense';
 type PaymentMethod = 'pix' | 'debit' | 'credit';
-type TransactionStatus = 'confirmed' | 'planned' | string;
+type TransactionStatus = 'confirmed' | 'planned';
 
 interface TransactionItem {
   _id: string;
@@ -128,6 +128,10 @@ function formatCurrency(value: number) {
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function getAccountBalance(account: Account) {
+  return Number((account as { balance?: number }).balance || 0);
 }
 
 function parseISODateOnlyUTC(value: string) {
@@ -428,7 +432,7 @@ export default function DashboardPage() {
   );
 
   const accountsTotalBalance = useMemo(
-    () => activeAccounts.reduce((sum, account) => sum + Number(account.currentBalance || 0), 0),
+    () => activeAccounts.reduce((sum, account) => sum + getAccountBalance(account), 0),
     [activeAccounts]
   );
 
@@ -623,7 +627,36 @@ export default function DashboardPage() {
           ? roundMoney(numericAmount / installmentCount)
           : numericAmount;
 
-      const payload: Record<string, unknown> = {
+      const payload: {
+        description: string;
+        type: TransactionType;
+        amount: number;
+        transactionDate: string;
+        purchaseDate: string;
+        category: string;
+        paymentMethod: PaymentMethod;
+        status: TransactionStatus;
+        account?: string;
+        creditCard?: string;
+        isRecurring?: boolean;
+        recurrenceRule?: {
+          type: TransactionType;
+          category: string;
+          frequency: 'monthly';
+          startDate: string;
+          value: number;
+        };
+        isInstallment?: boolean;
+        installmentIndex?: number;
+        installmentCount?: number;
+        installmentPlan?: {
+          totalAmount: number;
+          totalInstallments: number;
+          currentInstallment: number;
+          installmentAmount: number;
+          purchaseDate: string;
+        };
+      } = {
         description,
         type: form.type,
         amount: numericAmount,
@@ -951,7 +984,7 @@ export default function DashboardPage() {
                     </div>
                   </div>
                   <p className="text-sm font-black text-[#34495E]">
-                    {formatCurrency(Number(account.currentBalance || 0))}
+                    {formatCurrency(getAccountBalance(account))}
                   </p>
                 </div>
               ))}
