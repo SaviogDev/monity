@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   AtSign,
@@ -27,7 +27,7 @@ import {
 
 import { clearToken, fetchMe } from '@/services/auth';
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -35,7 +35,7 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 18 },
   show: {
     opacity: 1,
@@ -138,7 +138,7 @@ export default function ProfilePage() {
           name: data.name,
           email: data.email,
         });
-      } catch (error) {
+      } catch {
         clearToken();
         toast.error('Sessão expirada. Faça login novamente.');
         router.replace('/login');
