@@ -5,17 +5,21 @@ import {
   setToken as setStoredToken,
 } from './api';
 
+// ATUALIZADO: Adicionada a propriedade avatarUrl na interface principal
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
+  avatarUrl?: string; 
 }
 
+// ATUALIZADO: Adicionada a propriedade avatarUrl na interface bruta do banco
 interface RawAuthUser {
   id?: string;
   _id?: string;
   name?: string;
   email?: string;
+  avatarUrl?: string;
 }
 
 interface AuthPayload {
@@ -71,11 +75,13 @@ export const getToken = getStoredToken;
 export const setToken = setStoredToken;
 export const clearToken = clearStoredToken;
 
+// ATUALIZADO: A função normalizeUser agora repassa o avatarUrl para o Frontend
 function normalizeUser(user?: RawAuthUser | null): AuthUser {
   return {
     id: String(user?.id || user?._id || ''),
     name: String(user?.name || ''),
     email: String(user?.email || ''),
+    avatarUrl: user?.avatarUrl, // Mapeia o campo vindo do banco/API
   };
 }
 

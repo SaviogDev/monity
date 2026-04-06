@@ -23,6 +23,11 @@ const userSchema = new mongoose.Schema(
       minlength: [6, 'Senha deve ter no mínimo 6 caracteres'],
       select: false,
     },
+    // NOVO CAMPO: Guarda o link da imagem gerado pelo Firebase
+    avatarUrl: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

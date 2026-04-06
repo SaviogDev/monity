@@ -29,7 +29,7 @@ import {
 
 import { clearToken, fetchMe } from '@/services/auth';
 
-// IMPORTAÇÕES DO FIREBASE (Ajuste o caminho conforme o seu projeto)
+// IMPORTAÇÕES DO FIREBASE
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/services/firebase';
 
@@ -54,7 +54,7 @@ type ProfileUser = {
   id: string;
   name: string;
   email: string;
-  avatarUrl?: string; // NOVO: Propriedade para a foto
+  avatarUrl?: string;
 };
 
 type PreferencesState = {
@@ -145,7 +145,7 @@ export default function ProfilePage() {
           id: data.id,
           name: data.name,
           email: data.email,
-          avatarUrl: (data as { avatarUrl?: string }).avatarUrl, // Puxa a imagem se existir no banco
+          avatarUrl: data?.avatarUrl,
         });
       } catch {
         clearToken();
@@ -188,7 +188,7 @@ export default function ProfilePage() {
     }
   }
 
-  // --- NOVA FUNÇÃO DE UPLOAD PARA O FIREBASE ---
+  // --- UPLOAD COM FIREBASE + BACKEND MONGODB ---
   async function handleAvatarUpload(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file || !user) return;
@@ -196,19 +196,29 @@ export default function ProfilePage() {
     try {
       setUploadingAvatar(true);
 
-      // 1. Criar a referência de onde salvar no Firebase (pasta 'avatars')
+      // 1. Firebase Storage: Envia a imagem e pega a URL pública
       const fileRef = ref(storage, `avatars/${user.id}-${Date.now()}`);
-
-      // 2. Fazer o upload do arquivo
       await uploadBytes(fileRef, file);
-
-      // 3. Pegar a URL pública da imagem que acabou de ser salva
       const downloadUrl = await getDownloadURL(fileRef);
 
-      // 4. Aqui você deve chamar a API do seu Backend para salvar essa URL no banco do usuário
-      // Exemplo: await updateProfileInBackend({ avatarUrl: downloadUrl });
+      // 2. Backend: Salva a URL no MongoDB do usuário
+      // Tenta pegar o token de onde você costuma salvar (ajuste se necessário)
+      const token = localStorage.getItem('token') || localStorage.getItem('monity_token') || '';
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/avatar`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ avatarUrl: downloadUrl })
+      });
 
-      // 5. Atualizar a imagem na tela instantaneamente
+      if (!response.ok) {
+        throw new Error('Falha ao salvar a imagem no banco de dados');
+      }
+
+      // 3. Frontend: Atualiza a tela com a nova foto
       setUser((prev) => (prev ? { ...prev, avatarUrl: downloadUrl } : prev));
       toast.success('Foto de perfil atualizada com sucesso!');
     } catch (error) {
@@ -216,7 +226,6 @@ export default function ProfilePage() {
       toast.error('Erro ao enviar a imagem. Tente novamente.');
     } finally {
       setUploadingAvatar(false);
-      // Limpa o input para permitir enviar a mesma imagem novamente se necessário
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
@@ -327,7 +336,6 @@ export default function ProfilePage() {
                     getInitials(user?.name)
                   )}
                   
-                  {/* Máscara escura com o ícone de câmera ao passar o mouse */}
                   <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 opacity-0 transition-opacity group-hover:opacity-100">
                     {uploadingAvatar ? (
                       <Loader2 className="animate-spin text-white" size={28} />
@@ -373,63 +381,35 @@ export default function ProfilePage() {
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[460px]">
             <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                Status
-              </p>
-              <p className="mt-2 text-base font-black tracking-tight text-emerald-600">
-                Ativo
-              </p>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Status</p>
+              <p className="mt-2 text-base font-black tracking-tight text-emerald-600">Ativo</p>
             </div>
-
             <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                Plano
-              </p>
-              <p className="mt-2 text-base font-black tracking-tight text-slate-900">
-                Premium
-              </p>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Plano</p>
+              <p className="mt-2 text-base font-black tracking-tight text-slate-900">Premium</p>
             </div>
-
             <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                Segurança
-              </p>
-              <p className="mt-2 text-base font-black tracking-tight text-blue-600">
-                Estável
-              </p>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Segurança</p>
+              <p className="mt-2 text-base font-black tracking-tight text-blue-600">Estável</p>
             </div>
-
             <div className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                Conta
-              </p>
-              <p className="mt-2 text-base font-black tracking-tight text-slate-900">
-                Validada
-              </p>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Conta</p>
+              <p className="mt-2 text-base font-black tracking-tight text-slate-900">Validada</p>
             </div>
           </div>
         </div>
       </motion.section>
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.35fr_0.95fr]">
-        {/* COLUNA ESQUERDA */}
         <div className="space-y-8">
-          {/* QUICK ACTIONS */}
-          <motion.section
-            variants={itemVariants}
-            className="rounded-[2.5rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
-          >
+          <motion.section variants={itemVariants} className="rounded-[2.5rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
             <div className="mb-6 flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-inner">
                 <Settings size={24} />
               </div>
               <div>
-                <h2 className="text-xl font-black tracking-tight text-slate-900">
-                  Ações rápidas
-                </h2>
-                <p className="text-sm font-medium text-slate-500">
-                  Ajustes frequentes para sua conta.
-                </p>
+                <h2 className="text-xl font-black tracking-tight text-slate-900">Ações rápidas</h2>
+                <p className="text-sm font-medium text-slate-500">Ajustes frequentes para sua conta.</p>
               </div>
             </div>
 
@@ -446,44 +426,27 @@ export default function ProfilePage() {
                       <action.icon size={22} strokeWidth={2.2} />
                     </div>
                     <div>
-                      <p className="text-sm font-black tracking-tight text-slate-900">
-                        {action.title}
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-slate-500">
-                        {action.subtitle}
-                      </p>
+                      <p className="text-sm font-black tracking-tight text-slate-900">{action.title}</p>
+                      <p className="mt-1 text-xs font-medium text-slate-500">{action.subtitle}</p>
                     </div>
                   </div>
-
-                  <ChevronRight
-                    size={18}
-                    className="text-slate-300 transition-transform group-hover:translate-x-1"
-                  />
+                  <ChevronRight size={18} className="text-slate-300 transition-transform group-hover:translate-x-1" />
                 </button>
               ))}
             </div>
           </motion.section>
 
-          {/* ACCOUNT DATA */}
-          <motion.section
-            variants={itemVariants}
-            className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm"
-          >
+          <motion.section variants={itemVariants} className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-6 sm:px-8">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-inner">
                   <User size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black tracking-tight text-slate-900">
-                    Dados da conta
-                  </h2>
-                  <p className="text-sm font-medium text-slate-500">
-                    Informações principais do usuário autenticado.
-                  </p>
+                  <h2 className="text-xl font-black tracking-tight text-slate-900">Dados da conta</h2>
+                  <p className="text-sm font-medium text-slate-500">Informações principais do usuário autenticado.</p>
                 </div>
               </div>
-
               <button
                 type="button"
                 onClick={() => toast('Fluxo de edição entra na próxima etapa do Monity.')}
@@ -497,61 +460,37 @@ export default function ProfilePage() {
               <div className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5">
                 <div className="mb-2 flex items-center gap-2">
                   <Fingerprint size={14} className="text-slate-400" />
-                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                    Identificador
-                  </p>
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Identificador</p>
                 </div>
-                <p className="truncate font-mono text-xs font-bold text-slate-700">
-                  {user?.id || 'id_not_found_sync'}
-                </p>
+                <p className="truncate font-mono text-xs font-bold text-slate-700">{user?.id || 'id_not_found_sync'}</p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                  E-mail
-                </p>
-                <p className="text-base font-black tracking-tight text-slate-900">
-                  {user?.email}
-                </p>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">E-mail</p>
+                <p className="text-base font-black tracking-tight text-slate-900">{user?.email}</p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                  Nome
-                </p>
-                <p className="text-base font-black tracking-tight text-slate-900">
-                  {user?.name}
-                </p>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Nome</p>
+                <p className="text-base font-black tracking-tight text-slate-900">{user?.name}</p>
               </div>
 
               <div className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5">
-                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                  Tipo de perfil
-                </p>
-                <p className="text-base font-black tracking-tight text-blue-600">
-                  Administrador titular
-                </p>
+                <p className="mb-2 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Tipo de perfil</p>
+                <p className="text-base font-black tracking-tight text-blue-600">Administrador titular</p>
               </div>
             </div>
           </motion.section>
 
-          {/* PREFERENCES */}
-          <motion.section
-            variants={itemVariants}
-            className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm"
-          >
+          <motion.section variants={itemVariants} className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-6 sm:px-8">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner">
                   <Bell size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black tracking-tight text-slate-900">
-                    Preferências
-                  </h2>
-                  <p className="text-sm font-medium text-slate-500">
-                    Ajuste o comportamento da sua experiência no app.
-                  </p>
+                  <h2 className="text-xl font-black tracking-tight text-slate-900">Preferências</h2>
+                  <p className="text-sm font-medium text-slate-500">Ajuste o comportamento da sua experiência no app.</p>
                 </div>
               </div>
             </div>
@@ -566,22 +505,13 @@ export default function ProfilePage() {
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-500 shadow-sm">
                       <item.icon size={22} strokeWidth={2.2} />
                     </div>
-
                     <div>
-                      <p className="text-base font-black tracking-tight text-slate-900">
-                        {item.title}
-                      </p>
-                      <p className="mt-1 text-sm font-medium leading-relaxed text-slate-500">
-                        {item.desc}
-                      </p>
+                      <p className="text-base font-black tracking-tight text-slate-900">{item.title}</p>
+                      <p className="mt-1 text-sm font-medium leading-relaxed text-slate-500">{item.desc}</p>
                     </div>
                   </div>
-
                   <div className="sm:pl-6">
-                    <Switch
-                      checked={item.active}
-                      onClick={() => handleTogglePreference(item.id)}
-                    />
+                    <Switch checked={item.active} onClick={() => handleTogglePreference(item.id)} />
                   </div>
                 </div>
               ))}
@@ -589,25 +519,16 @@ export default function ProfilePage() {
           </motion.section>
         </div>
 
-        {/* COLUNA DIREITA */}
         <div className="space-y-8">
-          {/* SECURITY */}
-          <motion.section
-            variants={itemVariants}
-            className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm"
-          >
+          <motion.section variants={itemVariants} className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-100 px-6 py-6 sm:px-8">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 shadow-inner">
                   <Shield size={24} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black tracking-tight text-slate-900">
-                    Segurança
-                  </h2>
-                  <p className="text-sm font-medium text-slate-500">
-                    Proteção da sua conta e dos seus acessos.
-                  </p>
+                  <h2 className="text-xl font-black tracking-tight text-slate-900">Segurança</h2>
+                  <p className="text-sm font-medium text-slate-500">Proteção da sua conta e dos seus acessos.</p>
                 </div>
               </div>
             </div>
@@ -623,18 +544,11 @@ export default function ProfilePage() {
                     <Lock size={20} />
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-black tracking-tight text-slate-900">
-                      Alterar senha
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-slate-500">
-                      Atualize sua credencial de acesso.
-                    </p>
+                    <p className="text-sm font-black tracking-tight text-slate-900">Alterar senha</p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">Atualize sua credencial de acesso.</p>
                   </div>
                 </div>
-                <ChevronRight
-                  size={18}
-                  className="text-slate-300 transition-transform group-hover:translate-x-1"
-                />
+                <ChevronRight size={18} className="text-slate-300 transition-transform group-hover:translate-x-1" />
               </button>
 
               <button
@@ -647,27 +561,16 @@ export default function ProfilePage() {
                     <Smartphone size={20} />
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-black tracking-tight text-slate-900">
-                      Dispositivos conectados
-                    </p>
-                    <p className="mt-1 text-xs font-medium text-slate-500">
-                      Visualize onde sua conta está ativa.
-                    </p>
+                    <p className="text-sm font-black tracking-tight text-slate-900">Dispositivos conectados</p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">Visualize onde sua conta está ativa.</p>
                   </div>
                 </div>
-                <ChevronRight
-                  size={18}
-                  className="text-slate-300 transition-transform group-hover:translate-x-1"
-                />
+                <ChevronRight size={18} className="text-slate-300 transition-transform group-hover:translate-x-1" />
               </button>
             </div>
           </motion.section>
 
-          {/* PLAN CARD */}
-          <motion.section
-            variants={itemVariants}
-            className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm"
-          >
+          <motion.section variants={itemVariants} className="overflow-hidden rounded-[2.5rem] border border-slate-200 bg-white shadow-sm">
             <div className="p-6 sm:p-8">
               <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-blue-600 via-indigo-600 to-indigo-800 p-7 text-white shadow-2xl shadow-blue-500/25">
                 <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
@@ -677,24 +580,16 @@ export default function ProfilePage() {
                   <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md">
                     <Crown className="text-amber-400" size={32} strokeWidth={2.5} />
                   </div>
-
                   <p className="text-3xl font-black tracking-tighter">Monity Pro</p>
-                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.25em] text-blue-100/80">
-                    Membro vitalício
-                  </p>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.25em] text-blue-100/80">Membro vitalício</p>
 
                   <div className="mt-10 grid grid-cols-2 gap-4 border-t border-white/10 pt-6">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200/60">
-                        Próximo débito
-                      </p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200/60">Próximo débito</p>
                       <p className="mt-2 text-xl font-black">Isento</p>
                     </div>
-
                     <div className="text-right">
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200/60">
-                        Status
-                      </p>
+                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-200/60">Status</p>
                       <div className="mt-2 inline-flex rounded-lg bg-emerald-500/20 px-2 py-1 text-[10px] font-black uppercase tracking-widest text-emerald-300">
                         Ativo
                       </div>
@@ -713,7 +608,6 @@ export default function ProfilePage() {
             </div>
           </motion.section>
 
-          {/* LOGOUT */}
           <motion.section variants={itemVariants}>
             <button
               type="button"
@@ -721,11 +615,7 @@ export default function ProfilePage() {
               disabled={loggingOut}
               className="group flex w-full items-center justify-center gap-4 rounded-[2.5rem] border border-rose-100 bg-rose-50 p-6 text-lg font-black text-rose-600 shadow-sm shadow-rose-200/20 transition-all hover:bg-rose-100 active:scale-95 disabled:opacity-60"
             >
-              <LogOut
-                size={24}
-                strokeWidth={3}
-                className="transition-transform group-hover:-translate-x-1"
-              />
+              <LogOut size={24} strokeWidth={3} className="transition-transform group-hover:-translate-x-1" />
               {loggingOut ? 'Saindo...' : 'Encerrar sessão'}
             </button>
           </motion.section>

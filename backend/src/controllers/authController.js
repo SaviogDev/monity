@@ -15,6 +15,35 @@ export const register = async (req, res, next) => {
   }
 };
 
+// Função para atualizar a foto de perfil
+export const updateAvatar = async (req, res) => {
+  try {
+    const { avatarUrl } = req.body;
+    
+    // O seu middleware "auth" provavelmente coloca o ID do usuário em req.userId ou req.user._id
+    const userId = req.user?._id || req.userId || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Não autorizado. ID não encontrado.' });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId, 
+      { avatarUrl },
+      { new: true } // Retorna o usuário já atualizado
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ success: false, message: 'Usuário não encontrado' });
+    }
+
+    res.status(200).json({ success: true, avatarUrl: updatedUser.avatarUrl });
+  } catch (error) {
+    console.error('Erro ao atualizar avatar:', error);
+    res.status(500).json({ success: false, message: 'Erro interno ao salvar a foto de perfil.' });
+  }
+};
+
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
