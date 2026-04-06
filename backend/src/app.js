@@ -6,6 +6,7 @@ import invoiceRoutes from './routes/invoiceRoutes.js';
 import alertRoutes from './routes/alertRoutes.js';
 import financingRoutes from './routes/financingRoutes.js';
 import goalRoutes from './routes/goalRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 
 // --- NOVAS IMPORTAÇÕES ---
 import transactionRoutes from './routes/transactionRoutes.js';
@@ -31,11 +32,13 @@ app.use('/api/goals', goalRoutes);
 // --- NOVAS ROTAS ---
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/import', importRoutes);
+app.use('/api/auth', authRoutes);
 
 startCronJobs();
 
 // Os middlewares de erro devem sempre ser os últimos! (Já estava certinho)
 app.use(notFound);
 app.use(errorHandler);
+
 
 export default app;
