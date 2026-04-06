@@ -37,6 +37,7 @@ import {
 } from '@/services/financings';
 import { fetchCategories, type Category } from '@/services/categories';
 import { fetchAccounts, type Account } from '@/services/accounts';
+import type { TransactionStatus } from '@/services/transactions';
 
 function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -132,16 +133,14 @@ interface FinancingInstallmentPlan {
   purchaseDate?: string | null;
 }
 
-// CORREÇÃO DEFINITIVA: Usando Omit para o TypeScript ignorar os tipos rígidos do Backend 
-// nas propriedades 'category' e 'account' e aceitar a nossa flexibilidade.
-interface FinancingItem extends Omit<Financing, 'category' | 'account'> {
+interface FinancingItem extends Omit<Financing, 'category' | 'account' | 'status'> {
   _id: string;
   groupId?: string | null;
   description?: string;
   amount: number;
   transactionDate?: string | null;
   purchaseDate?: string | null;
-  status?: 'confirmed' | 'planned' | string;
+  status: TransactionStatus;
   installmentIndex?: number | null;
   installmentCount?: number | null;
   totalAmount?: number;
