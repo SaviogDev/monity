@@ -131,8 +131,9 @@ function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+// CORREÇÃO APLICADA AQUI: Puxando o 'currentBalance' correto!
 function getAccountBalance(account: Account) {
-  return Number((account as { balance?: number }).balance || 0);
+  return Number((account as any).currentBalance || (account as any).balance || 0);
 }
 
 function parseISODateOnlyUTC(value: string) {
@@ -1431,4 +1432,4 @@ export default function DashboardPage() {
       </AnimatePresence>
     </>
   );
-}
+} 
