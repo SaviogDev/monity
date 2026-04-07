@@ -134,12 +134,12 @@ const containerVariants: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: { staggerChildren: 0.05 },
+    transition: { staggerChildren: 0.08 },
   },
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 10 },
+  hidden: { opacity: 0, y: 15 },
   show: {
     opacity: 1,
     y: 0,
@@ -148,10 +148,20 @@ const itemVariants: Variants = {
 };
 
 const INPUT_CLASS =
-  'w-full rounded-[1.2rem] border border-transparent bg-slate-50 px-4 py-3.5 font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10';
+  'w-full rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all placeholder:text-slate-400 focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10';
 
 const SELECT_CLASS =
-  'w-full appearance-none rounded-[1.2rem] border border-transparent bg-slate-50 px-4 py-3.5 font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10';
+  'w-full appearance-none rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10';
+
+function BackgroundBlobs() {
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-[#f4f8fb] pointer-events-none">
+      <div className="absolute -left-[15%] -top-[10%] h-[600px] w-[600px] rounded-full bg-[#2ECC71]/10 blur-[120px]" />
+      <div className="absolute -bottom-[10%] -right-[10%] h-[500px] w-[500px] rounded-full bg-[#3498DB]/10 blur-[120px]" />
+      <div className="absolute top-[40%] left-[50%] h-[300px] w-[300px] rounded-full bg-[#9B59B6]/10 blur-[100px]" />
+    </div>
+  );
+}
 
 function getDefaultPaymentMethod(type: TransactionType): PaymentMethod {
   return type === 'income' ? 'transfer' : 'pix';
@@ -412,18 +422,25 @@ function MetricCard({
   icon: ReactNode;
 }) {
   const styles = {
+    blue: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg shadow-[#3498DB]/10',
+    red: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg shadow-[#FF3366]/10',
+    green: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg shadow-[#2ECC71]/10',
+    slate: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg',
+  }[tone];
+
+  const iconStyles = {
     blue: 'bg-[#3498DB]/10 text-[#3498DB]',
     red: 'bg-rose-50 text-[#FF3366]',
     green: 'bg-[#2ECC71]/10 text-[#2ECC71]',
-    slate: 'bg-slate-50 text-[#34495E]',
+    slate: 'bg-slate-100 text-[#34495E]',
   }[tone];
 
   return (
     <motion.div
       variants={itemVariants}
-      className="flex flex-col justify-between rounded-[2rem] border border-slate-100 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+      className={`flex flex-col justify-between rounded-[1.75rem] p-6 transition-all hover:-translate-y-1 sm:rounded-[2rem] ${styles}`}
     >
-      <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-[1.2rem] shadow-inner ${styles}`}>
+      <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-[1.2rem] shadow-inner ${iconStyles}`}>
         {icon}
       </div>
 
@@ -944,761 +961,775 @@ export default function TransactionsPage() {
   const isCredit = form.paymentMethod === 'credit';
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="mx-auto max-w-[1600px] space-y-6 px-4 pb-32 pt-4 sm:space-y-10 sm:px-6 sm:pt-6 lg:px-10"
-    >
-      <div className="flex flex-col gap-6 rounded-[2.5rem] border border-slate-100 bg-white p-6 shadow-sm sm:p-8 xl:flex-row xl:items-center xl:justify-between">
-        <div className="flex w-full items-center justify-between gap-4 xl:w-auto xl:justify-start xl:gap-6">
-          <button
-            type="button"
-            onClick={() => changeMonth(-1)}
-            className="rounded-[1.2rem] bg-slate-50 p-3 text-slate-400 transition-all hover:bg-[#3498DB]/10 hover:text-[#3498DB]"
-            aria-label="Mês anterior"
-          >
-            <ChevronLeft size={24} strokeWidth={3} />
-          </button>
+    <>
+      <BackgroundBlobs />
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="mx-auto max-w-[1600px] space-y-6 px-4 pb-32 pt-4 sm:space-y-10 sm:px-6 sm:pt-6 lg:px-10"
+      >
+        <div className="flex flex-col gap-6 rounded-[2rem] border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex w-full items-center justify-between gap-4 xl:w-auto xl:justify-start xl:gap-6">
+            <button
+              type="button"
+              onClick={() => changeMonth(-1)}
+              className="rounded-2xl bg-white/50 p-3 text-slate-400 shadow-sm transition-all hover:bg-[#3498DB]/10 hover:text-[#3498DB]"
+              aria-label="Mês anterior"
+            >
+              <ChevronLeft size={24} strokeWidth={3} />
+            </button>
 
-          <div className="min-w-[190px] text-center">
-            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#3498DB]">
-              Período
-            </p>
-            <h1 className="text-xl font-black capitalize tracking-tighter text-[#34495E] sm:text-2xl">
-              {monthLabel}
-            </h1>
+            <div className="min-w-[190px] text-center">
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.28em] text-[#3498DB]">
+                Período
+              </p>
+              <h1 className="text-xl font-black capitalize tracking-tighter text-[#34495E] sm:text-2xl">
+                {monthLabel}
+              </h1>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => changeMonth(1)}
+              className="rounded-2xl bg-white/50 p-3 text-slate-400 shadow-sm transition-all hover:bg-[#3498DB]/10 hover:text-[#3498DB]"
+              aria-label="Próximo mês"
+            >
+              <ChevronRight size={24} strokeWidth={3} />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => changeMonth(1)}
-            className="rounded-[1.2rem] bg-slate-50 p-3 text-slate-400 transition-all hover:bg-[#3498DB]/10 hover:text-[#3498DB]"
-            aria-label="Próximo mês"
-          >
-            <ChevronRight size={24} strokeWidth={3} />
-          </button>
-        </div>
+          <div className="flex w-full flex-col gap-3 xl:w-auto xl:flex-row xl:items-center">
+            <div className="relative w-full xl:w-80">
+              <Search
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                size={18}
+              />
+              <input
+                type="text"
+                placeholder="Pesquisar transação..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="w-full rounded-[1.25rem] border-2 border-slate-100 bg-white/50 py-3.5 pl-12 pr-4 font-bold text-[#34495E] outline-none transition-all placeholder:text-slate-400 focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
+              />
+            </div>
 
-        <div className="flex w-full flex-col gap-3 xl:w-auto xl:flex-row xl:items-center">
-          <div className="relative w-full xl:w-80">
-            <Search
-              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-              size={18}
-            />
             <input
-              type="text"
-              placeholder="Pesquisar lançamento, conta ou categoria..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="w-full rounded-[1.2rem] border border-transparent bg-slate-50 py-3.5 pl-12 pr-4 font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10"
+              ref={fileInputRef}
+              type="file"
+              accept=".ofx,.csv"
+              className="hidden"
+              onChange={handleFileUpload}
             />
+
+            <button
+              type="button"
+              onClick={openImportModal}
+              disabled={isImporting}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[1.25rem] border border-slate-200 bg-white px-6 py-3.5 font-black text-[#34495E] shadow-sm transition-all hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  Importando
+                </>
+              ) : (
+                <>
+                  <Upload size={20} strokeWidth={3} />
+                  Importar
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-[1.25rem] bg-gradient-to-tr from-[#2ECC71] to-[#27AE60] px-8 py-3.5 font-black text-white shadow-lg shadow-[#2ECC71]/30 transition-all hover:-translate-y-0.5 hover:shadow-[#2ECC71]/40 active:translate-y-0 active:scale-[0.98] sm:w-auto"
+            >
+              <Plus size={20} strokeWidth={3} />
+              Lançar
+            </button>
           </div>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".ofx,.csv"
-            className="hidden"
-            onChange={handleFileUpload}
-          />
-
-          <button
-            type="button"
-            onClick={openImportModal}
-            disabled={isImporting}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-slate-100 px-6 py-3.5 font-black text-[#34495E] transition-all hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
-          >
-            {isImporting ? (
-              <>
-                <Loader2 size={20} className="animate-spin" />
-                Importando...
-              </>
-            ) : (
-              <>
-                <Upload size={20} strokeWidth={3} />
-                Importar
-              </>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-[#2ECC71] px-8 py-3.5 font-black text-white shadow-lg shadow-[#2ECC71]/30 transition-all hover:scale-[1.02] active:scale-[0.99] sm:w-auto"
-          >
-            <Plus size={20} strokeWidth={3} />
-            Lançar
-          </button>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
-        <MetricCard
-          title="Entradas"
-          value={formatCurrency(totals.income)}
-          tone="green"
-          icon={<TrendingUp size={20} />}
-        />
-        <MetricCard
-          title="Saídas"
-          value={formatCurrency(totals.expense)}
-          tone="red"
-          icon={<TrendingDown size={20} />}
-        />
-        <MetricCard
-          title="Balanço"
-          value={formatCurrency(totals.balance)}
-          tone="blue"
-          icon={<Wallet size={20} />}
-        />
-      </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-6">
+          <MetricCard
+            title="Entradas"
+            value={formatCurrency(totals.income)}
+            tone="green"
+            icon={<TrendingUp size={20} />}
+          />
+          <MetricCard
+            title="Saídas"
+            value={formatCurrency(totals.expense)}
+            tone="red"
+            icon={<TrendingDown size={20} />}
+          />
+          <MetricCard
+            title="Balanço Geral"
+            value={formatCurrency(totals.balance)}
+            tone="blue"
+            icon={<Wallet size={20} />}
+          />
+        </div>
 
-      <div className="min-h-[500px] overflow-hidden rounded-[2.5rem] border border-slate-100 bg-white shadow-sm">
-        {loading ? (
-          <div className="flex min-h-[500px] flex-col items-center justify-center gap-4 p-10 text-center">
-            <Loader2 size={36} className="animate-spin text-[#2ECC71]" />
-            <p className="text-sm font-bold text-slate-400">Carregando lançamentos...</p>
-          </div>
-        ) : filteredTransactions.length === 0 ? (
-          <div className="flex min-h-[500px] flex-col items-center justify-center p-10 text-center">
-            <CalendarIcon className="mb-4 text-slate-200" size={52} />
-            <p className="text-base font-black text-[#34495E]">Nenhum lançamento neste mês.</p>
-            <p className="mt-2 text-sm font-bold text-slate-400">
-              Tente mudar o período, pesquisar por outro termo ou importar um extrato.
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col divide-y divide-slate-50">
-            {filteredTransactions.map((transaction) => {
-              const isIncome = transaction.type === 'income';
-              const statusLabel = transaction.status === 'confirmed' ? '● Liquidado' : '○ Planejado';
-              const destination =
-                transaction.account?.name || transaction.creditCard?.name || 'Manual';
-              const timing = getTransactionTimingLabel(transaction);
+        <div className="min-h-[500px] overflow-hidden rounded-[2rem] border border-white/60 bg-white/80 shadow-sm backdrop-blur-xl">
+          {loading ? (
+            <div className="flex min-h-[500px] flex-col items-center justify-center gap-4 p-10 text-center">
+              <div className="h-14 w-14 animate-spin rounded-full border-4 border-[#2ECC71] border-t-transparent shadow-lg shadow-[#2ECC71]/20" />
+              <p className="text-sm font-bold text-slate-400">Carregando lançamentos...</p>
+            </div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="flex min-h-[500px] flex-col items-center justify-center p-10 text-center">
+              <CalendarIcon className="mb-4 text-slate-300" size={52} />
+              <p className="text-base font-black text-[#34495E]">Nenhum lançamento neste mês.</p>
+              <p className="mt-2 text-sm font-bold text-slate-400">
+                Tente mudar o período, pesquisar por outro termo ou importar um extrato.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col divide-y divide-slate-100/50">
+              {filteredTransactions.map((transaction) => {
+                const isIncome = transaction.type === 'income';
+                const statusLabel = transaction.status === 'confirmed' ? 'Liquidado' : 'Planejado';
+                const destination =
+                  transaction.account?.name || transaction.creditCard?.name || 'Manual';
+                const timing = getTransactionTimingLabel(transaction);
 
-              return (
-                <motion.div
-                  key={transaction._id}
-                  variants={itemVariants}
-                  className="group flex flex-col gap-4 p-6 transition-colors hover:bg-slate-50/40 sm:p-8 md:flex-row md:items-center md:justify-between"
-                >
-                  <div className="flex min-w-0 flex-1 items-center gap-5">
-                    <div
-                      className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] shadow-inner ${
-                        isIncome ? 'bg-emerald-50 text-[#2ECC71]' : 'bg-rose-50 text-[#FF3366]'
-                      }`}
-                    >
-                      {isIncome ? (
-                        <TrendingUp size={24} strokeWidth={2.5} />
-                      ) : (
-                        <TrendingDown size={24} strokeWidth={2.5} />
-                      )}
-                    </div>
+                return (
+                  <motion.div
+                    key={transaction._id}
+                    variants={itemVariants}
+                    className="group flex flex-col gap-4 p-6 transition-colors hover:bg-white/50 sm:p-8 md:flex-row md:items-center md:justify-between"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-5">
+                      <div
+                        className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-sm ${
+                          isIncome ? 'bg-gradient-to-br from-emerald-50 to-emerald-100 text-[#2ECC71]' : 'bg-gradient-to-br from-rose-50 to-rose-100 text-[#FF3366]'
+                        }`}
+                      >
+                        {isIncome ? (
+                          <TrendingUp size={24} strokeWidth={2.5} />
+                        ) : (
+                          <TrendingDown size={24} strokeWidth={2.5} />
+                        )}
+                      </div>
 
-                    <div className="min-w-0 flex-1">
-                      <h3 className="flex flex-wrap items-center gap-2 text-lg font-black text-[#34495E]">
-                        <span className="truncate">{transaction.description}</span>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="flex flex-wrap items-center gap-2 text-lg font-black text-[#34495E]">
+                          <span className="truncate">{transaction.description}</span>
 
-                        {transaction.isInstallment ? (
-                          <span className="rounded-lg bg-[#3498DB]/10 px-2 py-0.5 text-[9px] font-black uppercase text-[#3498DB]">
-                            P {transaction.installmentIndex}/{transaction.installmentCount}
+                          {transaction.isInstallment ? (
+                            <span className="rounded-lg bg-[#3498DB]/10 px-2 py-0.5 text-[9px] font-black uppercase text-[#3498DB]">
+                              P {transaction.installmentIndex}/{transaction.installmentCount}
+                            </span>
+                          ) : null}
+
+                          {transaction.isRecurring && !transaction.isVirtual ? (
+                            <span className="rounded-lg bg-[#2ECC71]/10 px-2 py-0.5 text-[9px] font-black uppercase text-[#2ECC71]">
+                              Recorrente
+                            </span>
+                          ) : null}
+
+                          {transaction.paymentMethod === 'credit' ? (
+                            <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase text-slate-500 ring-1 ring-slate-200">
+                              Cartão
+                            </span>
+                          ) : null}
+
+                          {transaction.isVirtual ? (
+                            <span className="rounded-lg bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase text-amber-600">
+                              Projetado
+                            </span>
+                          ) : null}
+                        </h3>
+
+                        <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
+                          {transaction.category?.name || 'Geral'} • {destination}
+                        </p>
+
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-xl bg-white/60 px-3 py-1.5 text-[11px] font-black text-slate-500 shadow-sm ring-1 ring-slate-100">
+                            <Receipt size={12} />
+                            {timing.primaryLabel}: {timing.primaryValue}
                           </span>
-                        ) : null}
 
-                        {transaction.isRecurring && !transaction.isVirtual ? (
-                          <span className="rounded-lg bg-[#2ECC71]/10 px-2 py-0.5 text-[9px] font-black uppercase text-[#2ECC71]">
-                            Recorrente
-                          </span>
-                        ) : null}
-
-                        {transaction.paymentMethod === 'credit' ? (
-                          <span className="rounded-lg bg-slate-100 px-2 py-0.5 text-[9px] font-black uppercase text-slate-600">
-                            Cartão
-                          </span>
-                        ) : null}
-
-                        {transaction.isVirtual ? (
-                          <span className="rounded-lg bg-amber-100 px-2 py-0.5 text-[9px] font-black uppercase text-amber-700">
-                            Projetado
-                          </span>
-                        ) : null}
-                      </h3>
-
-                      <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">
-                        {transaction.category?.name || 'Geral'} • {destination}
-                      </p>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-[0.9rem] bg-slate-50 px-3 py-1.5 text-[11px] font-black text-slate-500">
-                          <Receipt size={12} />
-                          {timing.primaryLabel}: {timing.primaryValue}
-                        </span>
-
-                        {timing.secondaryLabel && timing.secondaryValue ? (
-                          <span className="inline-flex items-center gap-1 rounded-[0.9rem] bg-[#3498DB]/10 px-3 py-1.5 text-[11px] font-black text-[#3498DB]">
-                            <CalendarClock size={12} />
-                            {timing.secondaryLabel}: {timing.secondaryValue}
-                          </span>
-                        ) : null}
+                          {timing.secondaryLabel && timing.secondaryValue ? (
+                            <span className="inline-flex items-center gap-1 rounded-xl bg-[#3498DB]/10 px-3 py-1.5 text-[11px] font-black text-[#3498DB]">
+                              <CalendarClock size={12} />
+                              {timing.secondaryLabel}: {timing.secondaryValue}
+                            </span>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex w-full items-center justify-between gap-6 md:w-auto md:justify-end md:gap-8">
-                    <div className="text-left md:text-right">
-                      <span
-                        className={`text-[9px] font-black uppercase tracking-[0.16em] ${
-                          transaction.status === 'confirmed' ? 'text-[#2ECC71]' : 'text-amber-500'
-                        }`}
-                      >
-                        {statusLabel}
-                      </span>
+                    <div className="flex w-full items-center justify-between gap-6 md:w-auto md:justify-end md:gap-8">
+                      <div className="text-left md:text-right">
+                        <span
+                          className={`inline-block rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${
+                            transaction.status === 'confirmed' ? 'bg-[#2ECC71]/10 text-[#2ECC71]' : 'bg-amber-100 text-amber-600'
+                          }`}
+                        >
+                          {statusLabel}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <p
+                          className={`text-xl font-black tracking-tighter ${
+                            isIncome ? 'text-[#2ECC71]' : 'text-[#34495E]'
+                          }`}
+                        >
+                          {isIncome ? '+' : '-'} {formatCurrency(Number(transaction.amount || 0))}
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeleteId(transaction._id)}
+                          className="rounded-xl p-2 text-slate-300 transition-colors hover:bg-rose-50 hover:text-[#FF3366]"
+                          aria-label="Excluir lançamento"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-                    <div className="flex items-center gap-4">
-                      <p
-                        className={`text-xl font-black tracking-tighter ${
-                          isIncome ? 'text-[#2ECC71]' : 'text-[#34495E]'
-                        }`}
-                      >
-                        {isIncome ? '+' : '-'} {formatCurrency(Number(transaction.amount || 0))}
-                      </p>
-
-                      <button
-                        type="button"
-                        onClick={() => setDeleteId(transaction._id)}
-                        className="rounded-xl p-2 text-slate-300 transition-colors hover:text-rose-500"
-                        aria-label="Excluir lançamento"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <AnimatePresence>
-        {isImportModalOpen ? (
-          <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24 }}
-              className="relative w-full max-w-xl rounded-t-[2.5rem] bg-white p-6 shadow-2xl sm:rounded-[2.5rem] sm:p-8"
-            >
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-[#3498DB]">
-                    Importação
-                  </p>
-                  <h2 className="text-2xl font-black tracking-tighter text-[#34495E]">
-                    Escolha o destino do arquivo
-                  </h2>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-[#34495E]"
-                  aria-label="Fechar modal"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setImportTargetType('account')}
-                  className={`rounded-[1.5rem] border p-5 text-left transition-all ${
-                    importTargetType === 'account'
-                      ? 'border-[#3498DB]/30 bg-[#3498DB]/10 shadow-md'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#3498DB]/10 text-[#3498DB]">
-                    <Landmark size={22} />
-                  </div>
-                  <h3 className="text-lg font-black tracking-tighter text-[#34495E]">
-                    Conta bancária
-                  </h3>
-                  <p className="mt-1 text-sm font-bold leading-relaxed text-slate-400">
-                    Use para extrato de conta, PIX, TED, boletos e movimentações diretas.
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setImportTargetType('creditCard')}
-                  className={`rounded-[1.5rem] border p-5 text-left transition-all ${
-                    importTargetType === 'creditCard'
-                      ? 'border-[#2ECC71]/30 bg-[#2ECC71]/10 shadow-md'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2ECC71]/10 text-[#2ECC71]">
-                    <CreditCardIcon size={22} />
-                  </div>
-                  <h3 className="text-lg font-black tracking-tighter text-[#34495E]">
-                    Cartão de crédito
-                  </h3>
-                  <p className="mt-1 text-sm font-bold leading-relaxed text-slate-400">
-                    Use para OFX/CSV da fatura. O backend recalcula a competência da compra.
-                  </p>
-                </button>
-              </div>
-
-              <div className="mt-6 space-y-4">
-                {importTargetType === 'account' ? (
+        <AnimatePresence>
+          {isImportModalOpen ? (
+            <div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+              <motion.div
+                initial={{ opacity: 0, y: '100%' }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="relative w-full max-w-xl rounded-t-[2.5rem] bg-white p-6 shadow-2xl sm:rounded-[2.5rem] sm:p-8"
+              >
+                <div className="mb-6 flex items-center justify-between">
                   <div>
-                    <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
-                      Conta de destino
-                    </label>
-                    <select
-                      value={selectedImportAccountId}
-                      onChange={(event) => setSelectedImportAccountId(event.target.value)}
-                      className={SELECT_CLASS}
-                    >
-                      <option value="">Selecione uma conta</option>
-                      {activeAccounts.map((account) => (
-                        <option key={account._id} value={account._id}>
-                          {account.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 text-xs font-bold text-slate-400">
-                      O extrato será vinculado exatamente a esta conta.
+                    <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[#3498DB]">
+                      Importação Inteligente
                     </p>
+                    <h2 className="text-2xl font-black tracking-tight text-[#34495E]">
+                      Escolha o destino
+                    </h2>
                   </div>
-                ) : (
-                  <div>
-                    <label className="mb-2 block text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
-                      Cartão de destino
-                    </label>
-                    <select
-                      value={selectedImportCreditCardId}
-                      onChange={(event) => setSelectedImportCreditCardId(event.target.value)}
-                      className={SELECT_CLASS}
-                    >
-                      <option value="">Selecione um cartão</option>
-                      {activeCreditCards.map((card) => (
-                        <option key={card._id} value={card._id}>
-                          {card.name}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 text-xs font-bold text-slate-400">
-                      Fechamento {selectedImportCreditCard?.closingDay || '--'} • vencimento{' '}
-                      {selectedImportCreditCard?.dueDay || '--'}.
-                    </p>
-                  </div>
-                )}
-              </div>
 
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="w-full rounded-[1.2rem] bg-slate-100 py-3.5 font-bold text-slate-500 transition-all hover:bg-slate-200"
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleConfirmImportTarget}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-[#34495E] py-3.5 font-black text-white shadow-lg shadow-[#34495E]/20 transition-all hover:scale-[1.01] active:scale-[0.99]"
-                >
-                  <FileUp size={18} />
-                  Escolher arquivo
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        ) : null}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isModalOpen ? (
-          <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 24 }}
-              className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-t-[2.5rem] bg-white p-6 shadow-2xl sm:rounded-[2.5rem] sm:p-8"
-            >
-              <div className="mb-6 flex items-center justify-between">
-                <div>
-                  <p className="mb-1 text-[10px] font-black uppercase tracking-[0.24em] text-[#3498DB]">
-                    Lançamento manual
-                  </p>
-                  <h2 className="text-xl font-black tracking-tighter text-[#34495E]">
-                    Novo lançamento
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-[#34495E]"
-                  aria-label="Fechar modal"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex rounded-[1.2rem] bg-slate-100 p-1">
                   <button
                     type="button"
-                    onClick={() => handleTypeChange('expense')}
-                    className={`flex-1 rounded-[0.9rem] py-2.5 text-xs font-black transition-all ${
-                      form.type === 'expense'
-                        ? 'bg-white text-[#FF3366] shadow-sm'
-                        : 'text-slate-400'
+                    onClick={() => setIsImportModalOpen(false)}
+                    className="rounded-full bg-slate-100 p-2.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
+                    aria-label="Fechar modal"
+                  >
+                    <X size={20} strokeWidth={2.5} />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setImportTargetType('account')}
+                    className={`rounded-[1.5rem] border-2 p-5 text-left transition-all ${
+                      importTargetType === 'account'
+                        ? 'border-[#3498DB]/40 bg-[#3498DB]/5 shadow-md'
+                        : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'
                     }`}
                   >
-                    Despesa
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#3498DB]/10 text-[#3498DB]">
+                      <Landmark size={22} />
+                    </div>
+                    <h3 className="text-lg font-black tracking-tighter text-[#34495E]">
+                      Conta bancária
+                    </h3>
+                    <p className="mt-1 text-xs font-bold leading-relaxed text-slate-500">
+                      Use para extrato de conta, PIX, TED e movimentações diretas.
+                    </p>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => handleTypeChange('income')}
-                    className={`flex-1 rounded-[0.9rem] py-2.5 text-xs font-black transition-all ${
-                      form.type === 'income'
-                        ? 'bg-white text-[#2ECC71] shadow-sm'
-                        : 'text-slate-400'
+                    onClick={() => setImportTargetType('creditCard')}
+                    className={`rounded-[1.5rem] border-2 p-5 text-left transition-all ${
+                      importTargetType === 'creditCard'
+                        ? 'border-[#2ECC71]/40 bg-[#2ECC71]/5 shadow-md'
+                        : 'border-slate-100 bg-white hover:border-slate-200 hover:bg-slate-50'
                     }`}
                   >
-                    Receita
+                    <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2ECC71]/10 text-[#2ECC71]">
+                      <CreditCardIcon size={22} />
+                    </div>
+                    <h3 className="text-lg font-black tracking-tighter text-[#34495E]">
+                      Cartão de crédito
+                    </h3>
+                    <p className="mt-1 text-xs font-bold leading-relaxed text-slate-500">
+                      O backend recalcula a competência da compra baseada na fatura.
+                    </p>
                   </button>
                 </div>
 
-                <input
-                  type="text"
-                  required
-                  placeholder="O que foi?"
-                  value={form.description}
-                  onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                  className={INPUT_CLASS}
-                />
-
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 font-black text-slate-400">
-                    R$
-                  </span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0.01"
-                    step="0.01"
-                    required
-                    placeholder="0,00"
-                    value={form.amount}
-                    onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
-                    className="w-full rounded-[1.2rem] border border-transparent bg-slate-50 p-4 pl-12 text-2xl font-black tracking-tighter text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <select
-                    required
-                    value={form.category}
-                    onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
-                    className={SELECT_CLASS}
-                  >
-                    <option value="">Categoria</option>
-                    {categories
-                      .filter((category) => category.type === form.type)
-                      .map((category) => (
-                        <option key={category._id} value={category._id}>
-                          {category.name}
-                        </option>
-                      ))}
-                  </select>
-
-                  <input
-                    type="date"
-                    required
-                    value={form.date}
-                    onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
-                    className={INPUT_CLASS}
-                    aria-label={isCredit ? 'Data da compra' : 'Data do lançamento'}
-                  />
-                </div>
-
-                <div className="rounded-[1.2rem] border border-dashed border-slate-200 bg-slate-50/70 p-4">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                    {isCredit ? 'Data da compra' : 'Data do lançamento'}
-                  </p>
-                  <p className="mt-1 text-sm font-bold leading-relaxed text-slate-500">
-                    {isCredit
-                      ? 'No crédito, o backend usa esta data como purchaseDate e recalcula automaticamente a competência/vencimento conforme o ciclo do cartão.'
-                      : 'Fora do crédito, esta é a data real do lançamento e também a base da recorrência quando ativada.'}
-                  </p>
-                </div>
-
-                <div className="space-y-3 border-t border-slate-100 pt-4">
-                  <label className="ml-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                    Forma de pagamento
-                  </label>
-
-                  <div className={`grid gap-2 ${form.type === 'income' ? 'grid-cols-3' : 'grid-cols-5'}`}>
-                    {currentMethodOptions.map((method) => (
-                      <button
-                        key={method.value}
-                        type="button"
-                        onClick={() => handlePaymentMethodChange(method.value)}
-                        className={`rounded-[0.9rem] py-2.5 text-[10px] font-black uppercase transition-all ${
-                          form.paymentMethod === method.value
-                            ? 'bg-[#34495E] text-white shadow-md'
-                            : 'bg-slate-50 text-slate-400'
-                        }`}
-                      >
-                        {method.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {form.paymentMethod === 'credit' ? (
-                    <div className="space-y-3">
+                <div className="mt-6 space-y-4 rounded-[1.5rem] border border-slate-100 bg-slate-50 p-5">
+                  {importTargetType === 'account' ? (
+                    <div>
+                      <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                        Conta de destino
+                      </label>
                       <select
-                        required
-                        value={form.creditCard}
-                        onChange={(event) => setForm((prev) => ({ ...prev, creditCard: event.target.value }))}
+                        value={selectedImportAccountId}
+                        onChange={(event) => setSelectedImportAccountId(event.target.value)}
                         className={SELECT_CLASS}
                       >
-                        <option value="">Qual cartão?</option>
-                        {activeCreditCards.map((card) => (
-                          <option key={card._id} value={card._id}>
-                            {card.name}
-                          </option>
-                        ))}
-                      </select>
-
-                      {selectedCreditCard ? (
-                        <div className="rounded-[1.4rem] border border-[#3498DB]/10 bg-[#3498DB]/5 p-4">
-                          <div className="mb-3 flex items-center gap-2">
-                            <CreditCardIcon size={16} className="text-[#3498DB]" />
-                            <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
-                              Prévia do cartão
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3 text-sm font-bold text-slate-500">
-                            <div className="rounded-[1rem] bg-white px-3 py-2.5">
-                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                                Fechamento
-                              </p>
-                              <p className="mt-1 text-[#34495E]">Dia {selectedCreditCard.closingDay}</p>
-                            </div>
-                            <div className="rounded-[1rem] bg-white px-3 py-2.5">
-                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                                Vencimento
-                              </p>
-                              <p className="mt-1 text-[#34495E]">Dia {selectedCreditCard.dueDay}</p>
-                            </div>
-                            <div className="rounded-[1rem] bg-white px-3 py-2.5">
-                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                                Competência estimada
-                              </p>
-                              <p className="mt-1 text-[#34495E]">{cardPreview?.cycleLabel || '---'}</p>
-                            </div>
-                            <div className="rounded-[1rem] bg-white px-3 py-2.5">
-                              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                                Vencimento estimado
-                              </p>
-                              <p className="mt-1 text-[#34495E]">{cardPreview?.dueLabel || '---'}</p>
-                            </div>
-                          </div>
-
-                          {cardPreview?.linkedAccountName ? (
-                            <p className="mt-3 text-xs font-bold text-slate-500">
-                              Conta de pagamento vinculada: {cardPreview.linkedAccountName}
-                            </p>
-                          ) : null}
-
-                          {cardPreview?.availableLimit !== null && cardPreview?.availableLimit !== undefined ? (
-                            <div className="mt-3 rounded-[1rem] bg-white px-3 py-2.5 text-xs font-bold text-slate-500">
-                              Limite disponível atual:{' '}
-                              <span className="text-[#34495E]">
-                                {formatCurrency(Number(cardPreview.availableLimit || 0))}
-                              </span>
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div className="rounded-[1.2rem] border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-700">
-                          Cadastre ou selecione um cartão para lançar compras no crédito.
-                        </div>
-                      )}
-
-                      {form.type === 'expense' ? (
-                        <div className="rounded-[1.2rem] bg-slate-50 p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                              <Split size={16} className="text-[#3498DB]" />
-                              <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
-                                Parcelar compra
-                              </span>
-                            </div>
-
-                            <label className="inline-flex cursor-pointer items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={form.isInstallment}
-                                onChange={(event) =>
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    isInstallment: event.target.checked,
-                                    installments: event.target.checked ? prev.installments || '2' : '2',
-                                  }))
-                                }
-                                className="h-4 w-4 accent-[#2ECC71]"
-                              />
-                              <span className="text-xs font-bold text-slate-500">Ativar</span>
-                            </label>
-                          </div>
-
-                          {form.isInstallment ? (
-                            <div className="mt-3 space-y-3">
-                              <div className="flex items-center justify-between rounded-[1rem] bg-white px-3 py-2.5">
-                                <span className="text-xs font-bold text-slate-500">Quantidade</span>
-                                <input
-                                  type="number"
-                                  min="2"
-                                  step="1"
-                                  value={form.installments}
-                                  onChange={(event) => setForm((prev) => ({ ...prev, installments: event.target.value }))}
-                                  className="w-20 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center text-sm font-black text-[#34495E] outline-none focus:border-[#3498DB]/20"
-                                />
-                              </div>
-
-                              {Number(form.installments) >= 2 && Number(form.amount) > 0 ? (
-                                <div className="rounded-[1rem] bg-white px-3 py-2.5 text-xs font-bold text-slate-500">
-                                  Parcela estimada:{' '}
-                                  <span className="text-[#34495E]">
-                                    {formatCurrency(
-                                      roundMoney(
-                                        Number(form.amount) / Math.max(2, Number(form.installments) || 2)
-                                      )
-                                    )}
-                                  </span>
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <select
-                        required
-                        value={form.account}
-                        onChange={(event) => setForm((prev) => ({ ...prev, account: event.target.value }))}
-                        className={SELECT_CLASS}
-                      >
-                        <option value="">Qual conta?</option>
+                        <option value="">Selecione uma conta</option>
                         {activeAccounts.map((account) => (
                           <option key={account._id} value={account._id}>
                             {account.name}
                           </option>
                         ))}
                       </select>
-
-                      <div className="rounded-[1.2rem] bg-slate-50 p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <Repeat size={16} className="text-[#2ECC71]" />
-                            <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
-                              Recorrente mensal
-                            </span>
-                          </div>
-
-                          <label className="inline-flex cursor-pointer items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={form.isRecurring}
-                              onChange={(event) => setForm((prev) => ({ ...prev, isRecurring: event.target.checked }))}
-                              className="h-4 w-4 accent-[#2ECC71]"
-                            />
-                            <span className="text-xs font-bold text-slate-500">Ativar</span>
-                          </label>
-                        </div>
-
-                        <p className="mt-2 text-xs font-bold leading-relaxed text-slate-400">
-                          O sistema projeta os próximos meses visualmente e mantém o fluxo futuro organizado.
-                        </p>
-                      </div>
+                      <p className="mt-2 text-xs font-bold text-slate-500">
+                        O extrato será vinculado exatamente a esta conta.
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                        Cartão de destino
+                      </label>
+                      <select
+                        value={selectedImportCreditCardId}
+                        onChange={(event) => setSelectedImportCreditCardId(event.target.value)}
+                        className={SELECT_CLASS}
+                      >
+                        <option value="">Selecione um cartão</option>
+                        {activeCreditCards.map((card) => (
+                          <option key={card._id} value={card._id}>
+                            {card.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-xs font-bold text-slate-500">
+                        Fechamento: {selectedImportCreditCard?.closingDay || '--'} • Vencimento:{' '}
+                        {selectedImportCreditCard?.dueDay || '--'}.
+                      </p>
                     </div>
                   )}
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-[#2ECC71] py-4 text-base font-black text-white shadow-lg shadow-[#2ECC71]/30 transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="animate-spin" size={20} />
-                      Salvando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={20} />
-                      Confirmar
-                    </>
-                  )}
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        ) : null}
-      </AnimatePresence>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => setIsImportModalOpen(false)}
+                    className="w-full rounded-[1.25rem] bg-slate-100 py-4 font-bold text-slate-500 transition-all hover:bg-slate-200"
+                  >
+                    Cancelar
+                  </button>
 
-      <AnimatePresence>
-        {deleteId ? (
-          <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              className="w-full max-w-sm rounded-[2rem] bg-white p-8 text-center shadow-2xl"
-            >
-              <AlertTriangle className="mx-auto mb-4 text-[#FF3366]" size={32} />
-              <h3 className="mb-2 text-xl font-black tracking-tighter text-[#34495E]">
-                Excluir lançamento?
-              </h3>
-              <p className="mb-6 text-sm font-bold leading-relaxed text-slate-400">
-                {deleteMessage}
-              </p>
+                  <button
+                    type="button"
+                    onClick={handleConfirmImportTarget}
+                    className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-[1.25rem] bg-[#34495E] py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl shadow-[#34495E]/20 transition-all hover:-translate-y-0.5 hover:shadow-[#34495E]/30 active:translate-y-0 active:scale-[0.98]"
+                  >
+                    <div className="absolute inset-0 bg-white/10 opacity-0 transition-opacity group-hover:opacity-100" />
+                    <FileUp size={18} />
+                    <span>Escolher arquivo</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          ) : null}
+        </AnimatePresence>
 
-              <button
+        <AnimatePresence>
+          {isModalOpen ? (
+            <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/50 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+              <motion.button
                 type="button"
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="mb-2 inline-flex w-full items-center justify-center rounded-[1.2rem] bg-[#FF3366] py-3.5 font-black text-white shadow-lg shadow-[#FF3366]/20 transition-all disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isDeleting ? <Loader2 className="animate-spin" size={20} /> : 'Sim, excluir'}
-              </button>
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsModalOpen(false)}
+                className="absolute inset-0"
+                aria-label="Fechar modal"
+              />
 
-              <button
-                type="button"
-                onClick={() => setDeleteId(null)}
-                className="w-full rounded-[1.2rem] bg-slate-50 py-3.5 font-bold text-slate-500 transition-all hover:bg-slate-100"
+              <motion.div
+                initial={{ opacity: 0, y: '100%' }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[2.5rem] bg-white p-6 shadow-2xl sm:rounded-[2.5rem] sm:p-8"
               >
-                Cancelar
-              </button>
-            </motion.div>
-          </div>
-        ) : null}
-      </AnimatePresence>
-    </motion.div>
+                <div className="mb-8 flex items-center justify-between">
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[#3498DB]">
+                      Lançamento manual
+                    </p>
+                    <h2 className="text-2xl font-black tracking-tight text-[#34495E]">
+                      Novo registro
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="rounded-full bg-slate-100 p-2.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
+                    aria-label="Fechar modal"
+                  >
+                    <X size={20} strokeWidth={2.5} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-5">
+                  <div className="flex rounded-[1.25rem] bg-slate-100/80 p-1.5 shadow-inner">
+                    <button
+                      type="button"
+                      onClick={() => handleTypeChange('expense')}
+                      className={`flex-1 rounded-xl py-3 text-xs font-black transition-all ${
+                        form.type === 'expense'
+                          ? 'bg-white text-[#FF3366] shadow-md'
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      Despesa
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleTypeChange('income')}
+                      className={`flex-1 rounded-xl py-3 text-xs font-black transition-all ${
+                        form.type === 'income'
+                          ? 'bg-white text-[#2ECC71] shadow-md'
+                          : 'text-slate-400 hover:text-slate-600'
+                      }`}
+                    >
+                      Receita
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <input
+                      type="text"
+                      required
+                      placeholder="O que foi?"
+                      value={form.description}
+                      onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                      className={INPUT_CLASS}
+                    />
+
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-xl font-black text-slate-400">
+                        R$
+                      </span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0.01"
+                        step="0.01"
+                        required
+                        placeholder="0,00"
+                        value={form.amount}
+                        onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
+                        className="w-full rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 p-4 pl-14 text-3xl font-black tracking-tighter text-[#34495E] outline-none transition-all placeholder:text-slate-300 focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <select
+                        required
+                        value={form.category}
+                        onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
+                        className={SELECT_CLASS}
+                      >
+                        <option value="">Categoria</option>
+                        {categories
+                          .filter((category) => category.type === form.type)
+                          .map((category) => (
+                            <option key={category._id} value={category._id}>
+                              {category.name}
+                            </option>
+                          ))}
+                      </select>
+
+                      <input
+                        type="date"
+                        required
+                        value={form.date}
+                        onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
+                        className={INPUT_CLASS}
+                        aria-label={isCredit ? 'Data da compra' : 'Data do lançamento'}
+                      />
+                    </div>
+
+                    <div className="rounded-[1.25rem] border-2 border-dashed border-slate-200 bg-white/30 p-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                        {isCredit ? 'Data da compra' : 'Data do lançamento'}
+                      </p>
+                      <p className="mt-1 text-xs font-bold leading-relaxed text-slate-500">
+                        {isCredit
+                          ? 'No crédito, recalculamos a competência/vencimento conforme o ciclo do cartão selecionado.'
+                          : 'Fora do crédito, esta é a data real do lançamento e a base da recorrência (se ativada).'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 rounded-[1.5rem] border border-slate-100 bg-white p-5 shadow-sm">
+                    <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                      Forma de pagamento
+                    </label>
+
+                    <div className={`grid gap-2 ${form.type === 'income' ? 'grid-cols-3' : 'grid-cols-3 sm:grid-cols-5'}`}>
+                      {currentMethodOptions.map((method) => (
+                        <button
+                          key={method.value}
+                          type="button"
+                          onClick={() => handlePaymentMethodChange(method.value)}
+                          className={`rounded-xl py-3 text-[11px] font-black uppercase tracking-wide transition-all ${
+                            form.paymentMethod === method.value
+                              ? 'bg-[#34495E] text-white shadow-md'
+                              : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                          }`}
+                        >
+                          {method.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {form.paymentMethod === 'credit' ? (
+                      <div className="space-y-3 pt-2">
+                        <select
+                          required
+                          value={form.creditCard}
+                          onChange={(event) => setForm((prev) => ({ ...prev, creditCard: event.target.value }))}
+                          className={SELECT_CLASS}
+                        >
+                          <option value="">Qual cartão?</option>
+                          {activeCreditCards.map((card) => (
+                            <option key={card._id} value={card._id}>
+                              {card.name}
+                            </option>
+                          ))}
+                        </select>
+
+                        {selectedCreditCard ? (
+                          <div className="rounded-[1.25rem] border border-[#3498DB]/10 bg-[#3498DB]/5 p-4">
+                            <div className="mb-3 flex items-center gap-2">
+                              <CreditCardIcon size={16} className="text-[#3498DB]" />
+                              <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
+                                Prévia da fatura
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-sm font-bold text-slate-500">
+                              <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                  Fechamento
+                                </p>
+                                <p className="mt-1 text-[#34495E]">Dia {selectedCreditCard.closingDay}</p>
+                              </div>
+                              <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                  Vencimento
+                                </p>
+                                <p className="mt-1 text-[#34495E]">Dia {selectedCreditCard.dueDay}</p>
+                              </div>
+                              <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                  Competência
+                                </p>
+                                <p className="mt-1 text-[#34495E]">{cardPreview?.cycleLabel || '---'}</p>
+                              </div>
+                              <div className="rounded-xl bg-white px-3 py-2.5 shadow-sm">
+                                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                  Pagamento até
+                                </p>
+                                <p className="mt-1 text-[#34495E]">{cardPreview?.dueLabel || '---'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-[1.25rem] border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-700">
+                            Cadastre um cartão de crédito para lançar esta despesa.
+                          </div>
+                        )}
+
+                        {form.type === 'expense' ? (
+                          <div className="rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
+                                  <Split size={16} className="text-[#3498DB]" />
+                                </div>
+                                <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
+                                  Parcelar compra
+                                </span>
+                              </div>
+
+                              <label className="inline-flex cursor-pointer items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={form.isInstallment}
+                                  onChange={(event) =>
+                                    setForm((prev) => ({
+                                      ...prev,
+                                      isInstallment: event.target.checked,
+                                      installments: event.target.checked ? prev.installments || '2' : '2',
+                                    }))
+                                  }
+                                  className="h-5 w-5 accent-[#3498DB]"
+                                />
+                              </label>
+                            </div>
+
+                            {form.isInstallment ? (
+                              <div className="mt-4 space-y-3">
+                                <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3 shadow-sm">
+                                  <span className="text-xs font-bold text-slate-500">Qtd. de Parcelas</span>
+                                  <input
+                                    type="number"
+                                    min="2"
+                                    step="1"
+                                    value={form.installments}
+                                    onChange={(event) =>
+                                      setForm((prev) => ({ ...prev, installments: event.target.value }))
+                                    }
+                                    className="w-20 rounded-lg border-2 border-slate-100 bg-slate-50 px-3 py-2 text-center text-sm font-black text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white"
+                                  />
+                                </div>
+
+                                {Number(form.installments) >= 2 && Number(form.amount) > 0 ? (
+                                  <div className="rounded-xl bg-white px-4 py-3 text-xs font-bold text-slate-500 shadow-sm border border-slate-100">
+                                    Valor da parcela:{' '}
+                                    <span className="text-sm font-black text-[#34495E]">
+                                      {formatCurrency(
+                                        roundMoney(
+                                          Number(form.amount) / Math.max(2, Number(form.installments) || 2)
+                                        )
+                                      )}
+                                    </span>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="space-y-3 pt-2">
+                        <select
+                          required
+                          value={form.account}
+                          onChange={(event) => setForm((prev) => ({ ...prev, account: event.target.value }))}
+                          className={SELECT_CLASS}
+                        >
+                          <option value="">Qual conta?</option>
+                          {activeAccounts.map((account) => (
+                            <option key={account._id} value={account._id}>
+                              {account.name}
+                            </option>
+                          ))}
+                        </select>
+
+                        <div className="rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
+                                <Repeat size={16} className="text-[#2ECC71]" />
+                              </div>
+                              <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
+                                Recorrente mensal
+                              </span>
+                            </div>
+
+                            <label className="inline-flex cursor-pointer items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={form.isRecurring}
+                                onChange={(event) =>
+                                  setForm((prev) => ({ ...prev, isRecurring: event.target.checked }))
+                                }
+                                className="h-5 w-5 accent-[#2ECC71]"
+                              />
+                            </label>
+                          </div>
+
+                          <p className="mt-3 text-xs font-bold leading-relaxed text-slate-400">
+                            Útil para salários, assinaturas, aluguel e contas fixas do mês.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-[1.25rem] bg-gradient-to-tr from-[#2ECC71] to-[#27AE60] py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl shadow-[#2ECC71]/30 transition-all hover:-translate-y-0.5 hover:shadow-[#2ECC71]/40 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
+                  >
+                    <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="animate-spin relative z-10" size={20} />
+                        <span className="relative z-10">Salvando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 size={20} className="relative z-10" />
+                        <span className="relative z-10">Confirmar lançamento</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </motion.div>
+            </div>
+          ) : null}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {deleteId ? (
+            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                className="w-full max-w-sm rounded-[2.5rem] bg-white p-8 text-center shadow-2xl"
+              >
+                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-[#FF3366]">
+                  <AlertTriangle size={32} />
+                </div>
+                <h3 className="mb-2 text-xl font-black tracking-tighter text-[#34495E]">
+                  Excluir lançamento?
+                </h3>
+                <p className="mb-8 text-sm font-bold leading-relaxed text-slate-400">
+                  {deleteMessage}
+                </p>
+
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="flex w-full items-center justify-center rounded-[1.25rem] bg-[#FF3366] py-4 font-black text-white shadow-lg shadow-[#FF3366]/20 transition-all hover:bg-[#e62e5c] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isDeleting ? <Loader2 className="animate-spin" size={20} /> : 'Sim, excluir'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDeleteId(null)}
+                    className="w-full rounded-[1.25rem] bg-slate-100 py-4 font-bold text-slate-500 transition-all hover:bg-slate-200"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          ) : null}
+        </AnimatePresence>
+      </motion.div>
+    </>
   );
 }

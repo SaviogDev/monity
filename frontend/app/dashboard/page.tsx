@@ -17,6 +17,7 @@ import {
   Loader2,
   Repeat,
   Split,
+  ChevronRight,
 } from 'lucide-react';
 import {
   CartesianGrid,
@@ -95,7 +96,7 @@ const containerVariants: Variants = {
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 12 },
+  hidden: { opacity: 0, y: 15 },
   show: {
     opacity: 1,
     y: 0,
@@ -249,6 +250,16 @@ function getGreeting() {
   return 'Boa noite';
 }
 
+function BackgroundBlobs() {
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-[#f4f8fb] pointer-events-none">
+      <div className="absolute -left-[15%] -top-[10%] h-[600px] w-[600px] rounded-full bg-[#2ECC71]/10 blur-[120px]" />
+      <div className="absolute -bottom-[10%] -right-[10%] h-[500px] w-[500px] rounded-full bg-[#3498DB]/10 blur-[120px]" />
+      <div className="absolute top-[40%] left-[50%] h-[300px] w-[300px] rounded-full bg-[#9B59B6]/10 blur-[100px]" />
+    </div>
+  );
+}
+
 function MetricCard({
   title,
   value,
@@ -264,26 +275,26 @@ function MetricCard({
 }) {
   const styles = {
     green: {
-      box: 'bg-[#2ECC71] text-white shadow-[#2ECC71]/20',
-      icon: 'bg-white/20 text-white',
+      box: 'bg-gradient-to-br from-[#2ECC71] to-[#27AE60] text-white shadow-xl shadow-[#2ECC71]/30 border-none',
+      icon: 'bg-white/20 text-white backdrop-blur-md',
       value: 'text-white',
       label: 'text-white/85',
     },
     red: {
-      box: 'bg-[#FF3366] text-white shadow-[#FF3366]/20',
-      icon: 'bg-white/20 text-white',
+      box: 'bg-gradient-to-br from-[#FF3366] to-[#E74C3C] text-white shadow-xl shadow-[#FF3366]/30 border-none',
+      icon: 'bg-white/20 text-white backdrop-blur-md',
       value: 'text-white',
       label: 'text-white/85',
     },
     blue: {
-      box: 'bg-white border-slate-100 shadow-slate-200/40',
+      box: 'bg-white/80 backdrop-blur-xl border border-white shadow-lg shadow-slate-200/50',
       icon: 'bg-[#3498DB]/10 text-[#3498DB]',
       value: 'text-[#34495E]',
       label: 'text-slate-400',
     },
     dark: {
-      box: 'bg-[#34495E] text-white shadow-[#34495E]/20',
-      icon: 'bg-white/10 text-white',
+      box: 'bg-gradient-to-br from-[#34495E] to-[#2C3E50] text-white shadow-xl shadow-[#34495E]/30 border-none',
+      icon: 'bg-white/10 text-white backdrop-blur-md',
       value: 'text-white',
       label: 'text-white/75',
     },
@@ -292,21 +303,23 @@ function MetricCard({
   return (
     <motion.div
       variants={itemVariants}
-      className={`flex h-full flex-col justify-between overflow-hidden rounded-[1.75rem] border border-transparent p-4 shadow-md transition-all duration-300 hover:scale-[1.01] sm:rounded-[2rem] sm:p-6 ${styles.box}`}
+      className={`relative flex h-full flex-col justify-between overflow-hidden rounded-[1.75rem] p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:rounded-[2rem] sm:p-6 ${styles.box}`}
     >
-      <div>
-        <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-2xl ${styles.icon}`}>
+      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/5 blur-2xl" />
+      
+      <div className="relative z-10">
+        <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl ${styles.icon}`}>
           {icon}
         </div>
         <p className={`mb-1 text-[10px] font-black uppercase tracking-[0.24em] ${styles.label}`}>
           {title}
         </p>
-        <p className={`truncate text-2xl font-black tracking-tighter sm:text-3xl ${styles.value}`}>
+        <p className={`truncate text-3xl font-black tracking-tighter sm:text-4xl ${styles.value}`}>
           {value}
         </p>
       </div>
 
-      {subtitle ? <p className={`mt-3 text-xs font-bold ${styles.label}`}>{subtitle}</p> : null}
+      {subtitle ? <p className={`relative z-10 mt-4 text-xs font-bold ${styles.label}`}>{subtitle}</p> : null}
     </motion.div>
   );
 }
@@ -728,7 +741,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#2ECC71] border-t-transparent shadow-lg shadow-[#2ECC71]/20" />
+        <div className="h-14 w-14 animate-spin rounded-full border-4 border-[#2ECC71] border-t-transparent shadow-lg shadow-[#2ECC71]/20" />
       </div>
     );
   }
@@ -736,370 +749,387 @@ export default function DashboardPage() {
   const greetingText = userName ? `${greeting}, ${userName}` : greeting;
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-      className="mx-auto max-w-7xl space-y-5 px-4 pb-32 pt-4 sm:space-y-6 sm:px-6 sm:pt-6 lg:px-8"
-    >
-      <div>
-        <h1 className="text-2xl font-black tracking-tighter text-[#34495E] sm:text-3xl">
-          {greetingText}
-        </h1>
-        <p className="mt-1 text-sm font-bold text-slate-400">
-          Aqui está o resumo financeiro da sua operação.
-        </p>
-      </div>
+    <>
+      <BackgroundBlobs />
+      <motion.div
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+        className="mx-auto max-w-7xl space-y-5 px-4 pb-32 pt-6 sm:space-y-8 sm:px-6 sm:pt-8 lg:px-8"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-black tracking-tighter text-[#34495E] sm:text-4xl">
+              {greetingText}
+            </h1>
+            <p className="mt-1.5 text-sm font-bold text-slate-500">
+              Aqui está o resumo financeiro da sua operação.
+            </p>
+          </div>
+        </div>
 
-      <motion.div variants={containerVariants} className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-        <div className="col-span-2">
+        <motion.div variants={containerVariants} className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-4">
+          <div className="col-span-2">
+            <MetricCard
+              title="Saldo disponível"
+              value={formatCurrency(accountsTotalBalance)}
+              subtitle="Somando todas as contas ativas"
+              tone="green"
+              icon={<Wallet size={24} />}
+            />
+          </div>
+
           <MetricCard
-            title="Saldo disponível"
-            value={formatCurrency(accountsTotalBalance)}
-            subtitle="Somando todas as contas ativas"
-            tone="green"
-            icon={<Wallet size={22} />}
+            title="Entradas"
+            value={formatCurrency(monthSummary.income)}
+            subtitle="Mês atual"
+            tone="blue"
+            icon={<TrendingUp size={24} />}
           />
-        </div>
 
-        <MetricCard
-          title="Entradas"
-          value={formatCurrency(monthSummary.income)}
-          subtitle="Mês atual"
-          tone="blue"
-          icon={<TrendingUp size={22} />}
-        />
+          <MetricCard
+            title="Saídas"
+            value={formatCurrency(monthSummary.expense)}
+            subtitle="Mês atual"
+            tone="red"
+            icon={<TrendingDown size={24} />}
+          />
+        </motion.div>
 
-        <MetricCard
-          title="Saídas"
-          value={formatCurrency(monthSummary.expense)}
-          subtitle="Mês atual"
-          tone="red"
-          icon={<TrendingDown size={22} />}
-        />
-      </motion.div>
-
-      <AnimatePresence>
-        {insight ? (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="rounded-[1.75rem] border border-slate-100 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5"
-          >
-            <div className="flex items-start gap-4">
-              <div
-                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-                  insight.status === 'danger'
-                    ? 'bg-rose-50 text-[#FF3366]'
-                    : 'bg-[#2ECC71]/10 text-[#2ECC71]'
-                }`}
-              >
-                <BrainCircuit size={22} />
-              </div>
-
-              <div className="pt-0.5">
-                <h3 className="text-base font-black tracking-tight text-[#34495E]">{insight.title}</h3>
-                <p className="mt-1 text-sm font-bold leading-relaxed text-slate-500">
-                  {insight.message}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
-        <div className="space-y-5 lg:col-span-2 lg:space-y-6">
-          <motion.div
-            variants={itemVariants}
-            className="rounded-[1.75rem] border border-slate-100 bg-white p-5 shadow-sm sm:rounded-[2rem] sm:p-8"
-          >
-            <div className="mb-5 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-black tracking-tight text-[#34495E]">Fluxo de caixa</h3>
-                <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
-                  Próximos 30 dias
-                </p>
-              </div>
-              <div className="rounded-2xl bg-slate-50 px-3 py-2 text-xs font-black text-slate-500">
-                Base: {formatCurrency(currentBalanceBase)}
-              </div>
-            </div>
-
-            <div className="h-[200px] min-w-0 sm:h-[240px]">
-              {projectionTimeline.length === 0 ? (
-                <div className="flex h-full items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 text-slate-400">
-                  <p className="text-xs font-black uppercase tracking-[0.22em]">Sem dados</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={projectionTimeline} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis
-                      dataKey="label"
-                      stroke="#94a3b8"
-                      fontSize={10}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      stroke="#94a3b8"
-                      fontSize={10}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => `R$${value}`}
-                    />
-                    <Tooltip
-                      formatter={(value) => formatCurrency(Number(value))}
-                      cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }}
-                      contentStyle={{
-                        borderRadius: '12px',
-                        border: 'none',
-                        backgroundColor: '#34495E',
-                        color: '#fff',
-                        fontSize: '12px',
-                        fontWeight: 'bold',
-                      }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="saldo"
-                      stroke="#2ECC71"
-                      strokeWidth={3}
-                      dot={false}
-                      activeDot={{ r: 5, fill: '#2ECC71', strokeWidth: 0 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-          </motion.div>
-
-          <motion.div
-            variants={itemVariants}
-            className="overflow-hidden rounded-[1.75rem] border border-slate-100 bg-white shadow-sm sm:rounded-[2rem]"
-          >
-            <div className="flex items-center justify-between border-b border-slate-50 p-5 sm:p-6">
-              <div>
-                <h3 className="text-lg font-black tracking-tight text-[#34495E]">Transações recentes</h3>
-                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                  Últimos lançamentos registrados
-                </p>
-              </div>
-
-              <Link
-                href="/dashboard/transacoes"
-                className="text-xs font-black uppercase tracking-[0.22em] text-[#2ECC71] transition-colors hover:text-[#27AE60]"
-              >
-                Ver todas
-              </Link>
-            </div>
-
-            <div className="divide-y divide-slate-50">
-              {recentTransactions.length === 0 ? (
-                <div className="p-10 text-center text-sm font-bold text-slate-400">
-                  Nenhuma transação recente.
-                </div>
-              ) : (
-                recentTransactions.map((transaction) => {
-                  const isIncome = transaction.type === 'income';
-                  const destination = transaction.account?.name || transaction.creditCard?.name || 'Manual';
-
-                  return (
-                    <div
-                      key={transaction._id}
-                      className="flex items-center justify-between gap-4 p-4 transition-colors hover:bg-slate-50/60 sm:p-5"
-                    >
-                      <div className="flex min-w-0 items-center gap-4">
-                        <div
-                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
-                            isIncome ? 'bg-emerald-50 text-[#2ECC71]' : 'bg-rose-50 text-[#FF3366]'
-                          }`}
-                        >
-                          {isIncome ? (
-                            <TrendingUp size={20} strokeWidth={2.5} />
-                          ) : (
-                            <TrendingDown size={20} strokeWidth={2.5} />
-                          )}
-                        </div>
-
-                        <div className="min-w-0">
-                          <p className="flex items-center gap-2 truncate text-sm font-black text-[#34495E]">
-                            <span className="truncate">{transaction.description}</span>
-                            {transaction.isInstallment ? (
-                              <span className="rounded-lg bg-[#3498DB]/10 px-2 py-0.5 text-[9px] font-black uppercase text-[#3498DB]">
-                                P {transaction.installmentIndex}/{transaction.installmentCount}
-                              </span>
-                            ) : null}
-                          </p>
-                          <p className="mt-1 truncate text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                            {transaction.category?.name || 'Geral'} • {destination} •{' '}
-                            {formatDate(transaction.transactionDate || transaction.purchaseDate)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <p
-                          className={`text-sm font-black tracking-tight ${
-                            isIncome ? 'text-[#2ECC71]' : 'text-[#34495E]'
-                          }`}
-                        >
-                          {isIncome ? '+' : '-'} {formatCurrency(Number(transaction.amount || 0))}
-                        </p>
-                        <span
-                          className={`text-[10px] font-black uppercase tracking-[0.16em] ${
-                            transaction.status === 'confirmed' ? 'text-[#2ECC71]' : 'text-amber-500'
-                          }`}
-                        >
-                          {transaction.status === 'confirmed' ? 'Liquidado' : 'Planejado'}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </motion.div>
-        </div>
-
-        <div className="space-y-5 lg:space-y-6">
-          <motion.div
-            variants={itemVariants}
-            className="rounded-[1.75rem] border border-slate-100 bg-white p-5 shadow-sm sm:rounded-[2rem] sm:p-6"
-          >
-            <div className="mb-4">
-              <h3 className="text-lg font-black tracking-tight text-[#34495E]">Contas e cartões</h3>
-              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                Visão rápida dos principais meios
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {activeAccounts.slice(0, 3).map((account) => (
+        <AnimatePresence>
+          {insight ? (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/70 p-5 shadow-sm backdrop-blur-xl sm:rounded-3xl sm:p-6"
+            >
+              <div className="flex items-start gap-4 sm:items-center">
                 <div
-                  key={account._id}
-                  className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-4"
+                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
+                    insight.status === 'danger'
+                      ? 'bg-gradient-to-br from-rose-100 to-rose-50 text-[#FF3366] shadow-inner'
+                      : 'bg-gradient-to-br from-[#2ECC71]/20 to-[#2ECC71]/5 text-[#2ECC71] shadow-inner'
+                  }`}
                 >
-                  <div className="flex min-w-0 items-center gap-3 pr-2">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#3498DB] shadow-sm">
-                      <Landmark size={16} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[#34495E]">{account.name}</p>
-                      <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                        Conta
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-sm font-black text-[#34495E]">
-                    {formatCurrency(getAccountBalance(account))}
+                  <BrainCircuit size={26} />
+                </div>
+
+                <div className="pt-1 sm:pt-0">
+                  <h3 className="text-base font-black tracking-tight text-[#34495E]">{insight.title}</h3>
+                  <p className="mt-1 text-sm font-bold leading-relaxed text-slate-500">
+                    {insight.message}
                   </p>
                 </div>
-              ))}
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
 
-              {activeCreditCards.slice(0, 2).map((card) => (
-                <div
-                  key={card._id}
-                  className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 p-4"
-                >
-                  <div className="flex min-w-0 items-center gap-3 pr-2">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-purple-500 shadow-sm">
-                      <CreditCardIcon size={16} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-black text-[#34495E]">{card.name}</p>
-                      <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                        Fechamento {card.closingDay} • Vencimento {card.dueDay}
-                      </p>
-                    </div>
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
+          <div className="space-y-5 lg:col-span-2 lg:space-y-6">
+            <motion.div
+              variants={itemVariants}
+              className="rounded-[1.75rem] border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:rounded-[2rem] sm:p-8"
+            >
+              <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-xl font-black tracking-tight text-[#34495E]">Fluxo de caixa</h3>
+                  <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
+                    Próximos 30 dias
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white/50 px-4 py-2 text-xs font-black text-slate-500 shadow-sm ring-1 ring-slate-100">
+                  Base: {formatCurrency(currentBalanceBase)}
+                </div>
+              </div>
+
+              <div className="h-[220px] min-w-0 sm:h-[260px]">
+                {projectionTimeline.length === 0 ? (
+                  <div className="flex h-full items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white/30 text-slate-400">
+                    <p className="text-xs font-black uppercase tracking-[0.22em]">Sem dados projetados</p>
                   </div>
-                </div>
-              ))}
-
-              {activeAccounts.length === 0 && activeCreditCards.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm font-bold text-slate-400">
-                  Cadastre suas contas e cartões para completar o painel.
-                </div>
-              ) : null}
-            </div>
-          </motion.div>
-
-          <motion.div
-            variants={itemVariants}
-            className="flex flex-col rounded-[1.75rem] border border-slate-100 bg-white p-5 shadow-sm sm:rounded-[2rem] sm:p-6"
-          >
-            <h3 className="text-lg font-black tracking-tight text-[#34495E]">Despesas por pagamento</h3>
-            <p className="mb-5 mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-              Distribuição do mês atual
-            </p>
-
-            <div className="flex flex-1 items-center justify-center">
-              {paymentMethodData.length === 0 ? (
-                <p className="text-sm font-bold text-slate-400">Sem dados para exibir.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height={180}>
-                  <RechartsPieChart>
-                    <Pie
-                      data={paymentMethodData}
-                      dataKey="amount"
-                      nameKey="name"
-                      innerRadius={44}
-                      outerRadius={66}
-                      paddingAngle={3}
-                      stroke="none"
-                    >
-                      {paymentMethodData.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) => formatCurrency(Number(value))}
-                      contentStyle={{
-                        borderRadius: '12px',
-                        border: 'none',
-                        backgroundColor: '#34495E',
-                        color: '#fff',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                      }}
-                    />
-                  </RechartsPieChart>
-                </ResponsiveContainer>
-              )}
-            </div>
-
-            {paymentMethodData.length > 0 ? (
-              <div className="mt-4 space-y-2">
-                {paymentMethodData.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className="inline-block h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: item.color }}
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={projectionTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis
+                        dataKey="label"
+                        stroke="#94a3b8"
+                        fontSize={11}
+                        fontWeight={700}
+                        tickLine={false}
+                        axisLine={false}
+                        dy={10}
                       />
-                      <span className="text-sm font-black text-[#34495E]">{item.name}</span>
+                      <YAxis
+                        stroke="#94a3b8"
+                        fontSize={11}
+                        fontWeight={700}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => `R$${value}`}
+                      />
+                      <Tooltip
+                        formatter={(value) => formatCurrency(Number(value))}
+                        cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }}
+                        contentStyle={{
+                          borderRadius: '16px',
+                          border: '1px solid rgba(255,255,255,0.2)',
+                          backgroundColor: 'rgba(52, 73, 94, 0.95)',
+                          backdropFilter: 'blur(8px)',
+                          color: '#fff',
+                          fontSize: '13px',
+                          fontWeight: 'bold',
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="saldo"
+                        stroke="#2ECC71"
+                        strokeWidth={4}
+                        dot={false}
+                        activeDot={{ r: 6, fill: '#2ECC71', strokeWidth: 2, stroke: '#fff' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={itemVariants}
+              className="overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/80 shadow-sm backdrop-blur-xl sm:rounded-[2rem]"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100/50 p-5 sm:p-6 sm:px-8">
+                <div>
+                  <h3 className="text-xl font-black tracking-tight text-[#34495E]">Transações recentes</h3>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                    Últimos lançamentos registrados
+                  </p>
+                </div>
+
+                <Link
+                  href="/dashboard/transacoes"
+                  className="group flex items-center gap-1 text-xs font-black uppercase tracking-[0.22em] text-[#3498DB] transition-colors hover:text-[#2980b9]"
+                >
+                  Ver todas
+                  <ChevronRight size={14} className="transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
+
+              <div className="divide-y divide-slate-100/50">
+                {recentTransactions.length === 0 ? (
+                  <div className="p-12 text-center text-sm font-bold text-slate-400">
+                    Nenhuma transação recente no momento.
+                  </div>
+                ) : (
+                  recentTransactions.map((transaction) => {
+                    const isIncome = transaction.type === 'income';
+                    const destination = transaction.account?.name || transaction.creditCard?.name || 'Manual';
+
+                    return (
+                      <div
+                        key={transaction._id}
+                        className="flex items-center justify-between gap-4 p-4 px-5 transition-colors hover:bg-white/50 sm:p-5 sm:px-8"
+                      >
+                        <div className="flex min-w-0 items-center gap-4">
+                          <div
+                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-sm ${
+                              isIncome ? 'bg-gradient-to-br from-emerald-50 to-emerald-100 text-[#2ECC71]' : 'bg-gradient-to-br from-rose-50 to-rose-100 text-[#FF3366]'
+                            }`}
+                          >
+                            {isIncome ? (
+                              <TrendingUp size={22} strokeWidth={2.5} />
+                            ) : (
+                              <TrendingDown size={22} strokeWidth={2.5} />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="flex items-center gap-2 truncate text-sm font-black text-[#34495E] sm:text-base">
+                              <span className="truncate">{transaction.description}</span>
+                              {transaction.isInstallment ? (
+                                <span className="rounded-lg bg-[#3498DB]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#3498DB]">
+                                  P {transaction.installmentIndex}/{transaction.installmentCount}
+                               </span>
+                              ) : null}
+                            </p>
+                            <p className="mt-1.5 truncate text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                              {transaction.category?.name || 'Geral'} • {destination} •{' '}
+                              {formatDate(transaction.transactionDate || transaction.purchaseDate)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p
+                            className={`text-sm font-black tracking-tight sm:text-base ${
+                              isIncome ? 'text-[#2ECC71]' : 'text-[#34495E]'
+                            }`}
+                          >
+                            {isIncome ? '+' : '-'} {formatCurrency(Number(transaction.amount || 0))}
+                          </p>
+                          <span
+                            className={`mt-1 inline-block rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${
+                              transaction.status === 'confirmed' ? 'bg-[#2ECC71]/10 text-[#2ECC71]' : 'bg-amber-100 text-amber-600'
+                            }`}
+                          >
+                            {transaction.status === 'confirmed' ? 'Liquidado' : 'Planejado'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </motion.div>
+          </div>
+
+          <div className="space-y-5 lg:space-y-6">
+            <motion.div
+              variants={itemVariants}
+              className="rounded-[1.75rem] border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:rounded-[2rem] sm:p-6"
+            >
+              <div className="mb-5">
+                <h3 className="text-xl font-black tracking-tight text-[#34495E]">Contas e cartões</h3>
+                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                  Sua carteira digital
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {activeAccounts.slice(0, 3).map((account) => (
+                  <div
+                    key={account._id}
+                    className="flex items-center justify-between rounded-[1.25rem] border border-slate-100 bg-white/50 p-4 transition-all hover:bg-white"
+                  >
+                    <div className="flex min-w-0 items-center gap-3 pr-2">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#3498DB]/20 to-[#3498DB]/5 text-[#3498DB]">
+                        <Landmark size={18} strokeWidth={2.5} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black text-[#34495E]">{account.name}</p>
+                        <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                          Conta Bancária
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-xs font-black text-slate-500">
-                      {formatCurrency(item.amount)} • {item.count}
-                    </span>
+                    <p className="text-sm font-black tracking-tight text-[#34495E]">
+                      {formatCurrency(getAccountBalance(account))}
+                    </p>
                   </div>
                 ))}
-              </div>
-            ) : null}
-          </motion.div>
-        </div>
-      </div>
 
-      <div className="fixed bottom-6 right-4 z-50 sm:bottom-8 sm:right-6 lg:bottom-10 lg:right-10">
+                {activeCreditCards.slice(0, 2).map((card) => (
+                  <div
+                    key={card._id}
+                    className="relative flex items-center justify-between overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-slate-800 to-slate-900 p-4 text-white shadow-md transition-transform hover:scale-[1.02]"
+                  >
+                    <div className="absolute -right-4 -top-4 h-16 w-16 rounded-full bg-white/10 blur-xl" />
+                    <div className="relative z-10 flex min-w-0 items-center gap-3 pr-2">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white backdrop-blur-sm">
+                        <CreditCardIcon size={18} strokeWidth={2.5} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black">{card.name}</p>
+                        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">
+                          Vencimento dia {card.dueDay}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {activeAccounts.length === 0 && activeCreditCards.length === 0 ? (
+                  <div className="rounded-[1.25rem] border-2 border-dashed border-slate-200 bg-white/30 px-4 py-8 text-center text-sm font-bold text-slate-400">
+                    Cadastre suas contas e cartões para completar o painel.
+                  </div>
+                ) : null}
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={itemVariants}
+              className="flex flex-col rounded-[1.75rem] border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:rounded-[2rem] sm:p-6"
+            >
+              <h3 className="text-xl font-black tracking-tight text-[#34495E]">Despesas</h3>
+              <p className="mb-6 mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                Por meio de pagamento
+              </p>
+
+              <div className="flex flex-1 items-center justify-center">
+                {paymentMethodData.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <p className="text-sm font-bold text-slate-400">Sem despesas registradas.</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <RechartsPieChart>
+                      <Pie
+                        data={paymentMethodData}
+                        dataKey="amount"
+                        nameKey="name"
+                        innerRadius={55}
+                        outerRadius={80}
+                        paddingAngle={4}
+                        stroke="none"
+                        cornerRadius={4}
+                      >
+                        {paymentMethodData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) => formatCurrency(Number(value))}
+                        contentStyle={{
+                          borderRadius: '16px',
+                          border: 'none',
+                          backgroundColor: 'rgba(52, 73, 94, 0.95)',
+                          backdropFilter: 'blur(8px)',
+                          color: '#fff',
+                          fontSize: '12px',
+                          fontWeight: 'bold',
+                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+                        }}
+                      />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+
+              {paymentMethodData.length > 0 ? (
+                <div className="mt-6 space-y-2">
+                  {paymentMethodData.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between gap-3 rounded-xl bg-white/60 px-4 py-3 shadow-sm transition-colors hover:bg-white">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="inline-block h-3 w-3 rounded-full shadow-sm"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-sm font-black text-[#34495E]">{item.name}</span>
+                      </div>
+                      <span className="text-xs font-black tracking-tight text-slate-500">
+                        {formatCurrency(item.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </motion.div>
+          </div>
+        </div>
+      </motion.div>
+
+      <div className="fixed bottom-6 right-4 z-50 sm:bottom-8 sm:right-8 lg:bottom-10 lg:right-10">
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="flex h-14 w-14 items-center justify-center rounded-full bg-[#2ECC71] text-white shadow-lg shadow-[#2ECC71]/40 transition-all hover:scale-110 active:scale-95 sm:h-16 sm:w-16"
+          className="group flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-[#2ECC71] to-[#27AE60] text-white shadow-xl shadow-[#2ECC71]/40 transition-all hover:scale-110 active:scale-95 sm:h-16 sm:w-16"
           aria-label="Adicionar lançamento"
         >
-          <Plus size={28} strokeWidth={2.5} />
+          <Plus size={30} strokeWidth={2.5} className="transition-transform group-hover:rotate-90" />
         </button>
       </div>
 
@@ -1112,37 +1142,37 @@ export default function DashboardPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-900/50 backdrop-blur-md"
               aria-label="Fechar modal"
             />
 
             <motion.div
-              initial={{ opacity: 0, y: 28 }}
+              initial={{ opacity: 0, y: '100%' }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 28 }}
-              transition={{ type: 'spring', damping: 24 }}
-              className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[2.25rem] bg-white p-5 shadow-2xl sm:rounded-[2.5rem] sm:p-8"
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[2.5rem] bg-white p-6 shadow-2xl sm:rounded-[2.5rem] sm:p-8"
             >
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-8 flex items-center justify-between">
                 <div>
-                  <p className="mb-1 text-[10px] font-black uppercase tracking-[0.24em] text-[#3498DB]">
+                  <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[#3498DB]">
                     Lançamento rápido
                   </p>
-                  <h2 className="text-xl font-black tracking-tight text-[#34495E]">Novo lançamento</h2>
+                  <h2 className="text-2xl font-black tracking-tight text-[#34495E]">Novo registro</h2>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-full bg-slate-50 p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                  className="rounded-full bg-slate-100 p-2.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
                   aria-label="Fechar"
                 >
-                  <X size={18} />
+                  <X size={20} strokeWidth={2.5} />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex rounded-[1.2rem] bg-slate-100 p-1">
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="flex rounded-[1.25rem] bg-slate-100/80 p-1.5 shadow-inner">
                   <button
                     type="button"
                     onClick={() =>
@@ -1151,8 +1181,8 @@ export default function DashboardPage() {
                         type: 'expense',
                       }))
                     }
-                    className={`flex-1 rounded-[0.95rem] py-3 text-xs font-black transition-all ${
-                      form.type === 'expense' ? 'bg-white text-[#FF3366] shadow-sm' : 'text-slate-400'
+                    className={`flex-1 rounded-xl py-3 text-xs font-black transition-all ${
+                      form.type === 'expense' ? 'bg-white text-[#FF3366] shadow-md' : 'text-slate-400 hover:text-slate-600'
                     }`}
                   >
                     Despesa
@@ -1167,68 +1197,70 @@ export default function DashboardPage() {
                         installments: '2',
                       }))
                     }
-                    className={`flex-1 rounded-[0.95rem] py-3 text-xs font-black transition-all ${
-                      form.type === 'income' ? 'bg-white text-[#2ECC71] shadow-sm' : 'text-slate-400'
+                    className={`flex-1 rounded-xl py-3 text-xs font-black transition-all ${
+                      form.type === 'income' ? 'bg-white text-[#2ECC71] shadow-md' : 'text-slate-400 hover:text-slate-600'
                     }`}
                   >
                     Receita
                   </button>
                 </div>
 
-                <input
-                  type="text"
-                  required
-                  placeholder="O que foi?"
-                  value={form.description}
-                  onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                  className="w-full rounded-[1.2rem] border border-transparent bg-slate-50 px-4 py-3.5 font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10"
-                />
-
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg font-black text-slate-400">
-                    R$
-                  </span>
+                <div className="space-y-4">
                   <input
-                    type="number"
-                    inputMode="decimal"
-                    min="0.01"
-                    step="0.01"
+                    type="text"
                     required
-                    placeholder="0,00"
-                    value={form.amount}
-                    onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
-                    className="w-full rounded-[1.2rem] border border-transparent bg-slate-50 p-4 pl-12 text-3xl font-black tracking-tighter text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10"
+                    placeholder="O que foi?"
+                    value={form.description}
+                    onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                    className="w-full rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all placeholder:text-slate-400 focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
                   />
+
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-xl font-black text-slate-400">
+                      R$
+                    </span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0.01"
+                      step="0.01"
+                      required
+                      placeholder="0,00"
+                      value={form.amount}
+                      onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
+                      className="w-full rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 p-4 pl-14 text-3xl font-black tracking-tighter text-[#34495E] outline-none transition-all placeholder:text-slate-300 focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <select
+                      required
+                      value={form.category}
+                      onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
+                      className="w-full appearance-none rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
+                    >
+                      <option value="">Categoria</option>
+                      {categories
+                        .filter((category) => category.type === form.type)
+                        .map((category) => (
+                          <option key={category._id} value={category._id}>
+                            {category.name}
+                          </option>
+                        ))}
+                    </select>
+
+                    <input
+                      type="date"
+                      required
+                      value={form.date}
+                      onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
+                      className="w-full rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <select
-                    required
-                    value={form.category}
-                    onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
-                    className="w-full appearance-none rounded-[1.2rem] border border-transparent bg-slate-50 px-4 py-3.5 font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10"
-                  >
-                    <option value="">Categoria</option>
-                    {categories
-                      .filter((category) => category.type === form.type)
-                      .map((category) => (
-                        <option key={category._id} value={category._id}>
-                          {category.name}
-                        </option>
-                      ))}
-                  </select>
-
-                  <input
-                    type="date"
-                    required
-                    value={form.date}
-                    onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
-                    className="w-full rounded-[1.2rem] border border-transparent bg-slate-50 px-4 py-3.5 font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10"
-                  />
-                </div>
-
-                <div className="space-y-3 border-t border-slate-100 pt-4">
-                  <label className="ml-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                <div className="space-y-4 rounded-[1.5rem] border border-slate-100 bg-white p-5 shadow-sm">
+                  <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
                     Forma de pagamento
                   </label>
 
@@ -1252,10 +1284,10 @@ export default function DashboardPage() {
                             installments: method.value === 'credit' ? prev.installments : '2',
                           }))
                         }
-                        className={`rounded-[0.95rem] py-3 text-[10px] font-black uppercase transition-all ${
+                        className={`rounded-xl py-3 text-[11px] font-black uppercase tracking-wide transition-all ${
                           form.paymentMethod === method.value
                             ? 'bg-[#34495E] text-white shadow-md'
-                            : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                         }`}
                       >
                         {method.label}
@@ -1264,16 +1296,16 @@ export default function DashboardPage() {
                   </div>
 
                   {form.paymentMethod === 'credit' ? (
-                    <div className="space-y-3">
+                    <div className="space-y-3 pt-2">
                       <select
                         required
                         value={form.creditCard}
                         onChange={(event) =>
                           setForm((prev) => ({ ...prev, creditCard: event.target.value }))
                         }
-                        className="w-full appearance-none rounded-[1.2rem] border border-transparent bg-slate-50 px-4 py-3.5 font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10"
+                        className="w-full appearance-none rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
                       >
-                        <option value="">Cartão de crédito</option>
+                        <option value="">Selecione o Cartão</option>
                         {activeCreditCards.map((card) => (
                           <option key={card._id} value={card._id}>
                             {card.name}
@@ -1282,10 +1314,12 @@ export default function DashboardPage() {
                       </select>
 
                       {form.type === 'expense' ? (
-                        <div className="rounded-[1.2rem] bg-slate-50 p-4">
+                        <div className="rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
                           <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                              <Split size={16} className="text-[#3498DB]" />
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
+                                <Split size={16} className="text-[#3498DB]" />
+                              </div>
                               <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
                                 Parcelar compra
                               </span>
@@ -1302,15 +1336,14 @@ export default function DashboardPage() {
                                     installments: event.target.checked ? prev.installments || '2' : '2',
                                   }))
                                 }
-                                className="h-4 w-4 accent-[#2ECC71]"
+                                className="h-5 w-5 accent-[#3498DB]"
                               />
-                              <span className="text-xs font-bold text-slate-500">Ativar</span>
                             </label>
                           </div>
 
                           {form.isInstallment ? (
-                            <div className="mt-3 flex items-center justify-between rounded-[1rem] bg-white px-3 py-2.5">
-                              <span className="text-xs font-bold text-slate-500">Quantidade</span>
+                            <div className="mt-4 flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm border border-slate-100">
+                              <span className="text-xs font-bold text-slate-500">Qtd. de Parcelas</span>
                               <input
                                 type="number"
                                 min="2"
@@ -1319,7 +1352,7 @@ export default function DashboardPage() {
                                 onChange={(event) =>
                                   setForm((prev) => ({ ...prev, installments: event.target.value }))
                                 }
-                                className="w-20 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-center text-sm font-black text-[#34495E] outline-none focus:border-[#3498DB]/20"
+                                className="w-20 rounded-lg border-2 border-slate-100 bg-slate-50 px-3 py-2 text-center text-sm font-black text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white"
                               />
                             </div>
                           ) : null}
@@ -1327,14 +1360,14 @@ export default function DashboardPage() {
                       ) : null}
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-3 pt-2">
                       <select
                         required
                         value={form.account}
                         onChange={(event) => setForm((prev) => ({ ...prev, account: event.target.value }))}
-                        className="w-full appearance-none rounded-[1.2rem] border border-transparent bg-slate-50 px-4 py-3.5 font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/20 focus:ring-4 focus:ring-[#3498DB]/10"
+                        className="w-full appearance-none rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
                       >
-                        <option value="">Conta de destino</option>
+                        <option value="">Selecione a Conta</option>
                         {activeAccounts.map((account) => (
                           <option key={account._id} value={account._id}>
                             {account.name}
@@ -1342,10 +1375,12 @@ export default function DashboardPage() {
                         ))}
                       </select>
 
-                      <div className="rounded-[1.2rem] bg-slate-50 p-4">
+                      <div className="rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
                         <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            <Repeat size={16} className="text-[#2ECC71]" />
+                          <div className="flex items-center gap-2.5">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
+                              <Repeat size={16} className="text-[#2ECC71]" />
+                            </div>
                             <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
                               Recorrente mensal
                             </span>
@@ -1358,13 +1393,12 @@ export default function DashboardPage() {
                               onChange={(event) =>
                                 setForm((prev) => ({ ...prev, isRecurring: event.target.checked }))
                               }
-                              className="h-4 w-4 accent-[#2ECC71]"
+                              className="h-5 w-5 accent-[#2ECC71]"
                             />
-                            <span className="text-xs font-bold text-slate-500">Ativar</span>
                           </label>
                         </div>
 
-                        <p className="mt-2 text-xs font-bold leading-relaxed text-slate-400">
+                        <p className="mt-3 text-xs font-bold leading-relaxed text-slate-400">
                           Útil para salários, assinaturas, aluguel e contas fixas do mês.
                         </p>
                       </div>
@@ -1375,17 +1409,18 @@ export default function DashboardPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-[1.2rem] bg-[#2ECC71] py-4 text-base font-black text-white shadow-lg shadow-[#2ECC71]/30 transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-[1.25rem] bg-gradient-to-tr from-[#2ECC71] to-[#27AE60] py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl shadow-[#2ECC71]/30 transition-all hover:-translate-y-0.5 hover:shadow-[#2ECC71]/40 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                 >
+                  <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="animate-spin" size={20} />
-                      Salvando...
+                      <Loader2 className="animate-spin relative z-10" size={20} />
+                      <span className="relative z-10">Salvando...</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 size={20} />
-                      Confirmar lançamento
+                      <CheckCircle2 size={20} className="relative z-10" />
+                      <span className="relative z-10">Confirmar lançamento</span>
                     </>
                   )}
                 </button>
@@ -1394,6 +1429,6 @@ export default function DashboardPage() {
           </div>
         ) : null}
       </AnimatePresence>
-    </motion.div>
+    </>
   );
 }
