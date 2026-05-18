@@ -274,6 +274,58 @@ export async function getRecurringRuleById(userId, ruleId) {
   return rule;
 }
 
+export async function updateRecurringRule(userId, ruleId, rawPayload) {
+  const rule = await RecurringRule.findOne({ _id: ruleId, user: userId });
+  if (!rule) {
+    throw new Error('Regra recorrente não encontrada.');
+  }
+
+  const payload = normalizeRecurringRulePayload({ ...rule.toObject(), ...rawPayload });
+  validateRecurringRulePayload(payload);
+  await validateRuleReferences(userId, payload);
+
+  const nextExecutionDate = calculateNextExecutionDate({
+    frequency: payload.frequency,
+    startDate: payload.startDate,
+    dayOfMonth: payload.dayOfMonth,
+    dayOfWeek: payload.dayOfWeek,
+  });
+
+  Object.assign(rule, {
+    description: payload.description,
+    type: payload.type,
+    amount: payload.amount,
+    category: payload.category,
+    account: payload.account,
+    creditCard: payload.creditCard,
+    paymentMethod: payload.paymentMethod,
+    frequency: payload.frequency,
+    dayOfMonth: payload.dayOfMonth,
+    dayOfWeek: payload.dayOfWeek,
+    startDate: payload.startDate,
+    endDate: payload.endDate,
+    notes: payload.notes,
+    autoGenerate: payload.autoGenerate,
+    isActive: payload.isActive,
+    nextExecutionDate,
+  });
+
+  await rule.save();
+
+  return RecurringRule.findById(rule._id)
+    .populate('category', 'name type color icon')
+    .populate('account', 'name type bankCode color')
+    .populate('creditCard', 'name bankCode limit closingDay dueDay color');
+}
+
+export async function deleteRecurringRule(userId, ruleId) {
+  const result = await RecurringRule.deleteOne({ _id: ruleId, user: userId });
+  if (result.deletedCount === 0) {
+    throw new Error('Regra recorrente não encontrada ou já excluída.');
+  }
+  return { message: 'Regra excluída com sucesso.' };
+}
+
 /* ================= MOTOR DE RECORRÊNCIA (O OPERÁRIO) ================= */
 
 /**

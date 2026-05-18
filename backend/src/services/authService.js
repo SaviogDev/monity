@@ -33,6 +33,7 @@ export const register = async ({ name, email, password, verificationCode, verifi
       id: user._id,
       name: user.name,
       email: user.email,
+      avatarUrl: user.avatarUrl,
       isVerified: user.isVerified, // Devolvemos o status (falso por padrão)
     },
   };
@@ -62,6 +63,7 @@ export const login = async ({ email, password }) => {
       id: user._id,
       name: user.name,
       email: user.email,
+      avatarUrl: user.avatarUrl,
       isVerified: user.isVerified,
     },
   };
@@ -89,6 +91,7 @@ export const updateMe = async ({ userId, name }) => {
       id: user._id,
       name: user.name,
       email: user.email,
+      avatarUrl: user.avatarUrl,
     },
   };
 };

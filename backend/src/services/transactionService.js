@@ -9,7 +9,7 @@ import { matchCategory } from '../utils/categoryMatcher.js';
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
 const POPULATE_FIELDS = [
-  { path: 'category' },
+  { path: 'category', populate: { path: 'parent', select: 'name icon color' } },
   { path: 'account' },
   { path: 'creditCard' },
 ];

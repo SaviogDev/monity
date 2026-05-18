@@ -77,13 +77,13 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+      <div className="bg-[var(--bg-card)] w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-6 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-surface)]">
           <div>
-            <h2 className="text-xl font-black text-slate-800">Importação Inteligente</h2>
+            <h2 className="text-xl font-black text-slate-100">Importação Inteligente</h2>
             <p className="text-xs text-slate-500 uppercase font-bold tracking-wider">Arquivo OFX do Banco</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={24} /></button>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-400"><X size={24} /></button>
         </div>
 
         <div className="p-6 overflow-y-auto">
@@ -91,9 +91,9 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
             <div className="space-y-6">
               {/* Passo 1: Escolher a Conta */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">1. Para qual conta vai esse extrato?</label>
+                <label className="block text-sm font-bold text-slate-300 mb-2">1. Para qual conta vai esse extrato?</label>
                 <select 
-                  className="w-full p-3 rounded-xl border border-slate-200 outline-none focus:border-[#1ABC9C]"
+                  className="w-full p-3 rounded-xl border border-[var(--border)] outline-none focus:border-[#1ABC9C]"
                   value={selectedAccountId}
                   onChange={(e) => setSelectedAccountId(e.target.value)}
                 >
@@ -104,12 +104,12 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
 
               {/* Passo 2: Upload */}
               <div 
-                className={`border-2 border-dashed rounded-3xl p-10 text-center transition-colors ${file ? 'border-[#1ABC9C] bg-green-50' : 'border-slate-200 hover:border-[#1ABC9C]'}`}
+                className={`border-2 border-dashed rounded-3xl p-10 text-center transition-colors ${file ? 'border-[#1ABC9C] bg-green-50' : 'border-[var(--border)] hover:border-[#1ABC9C]'}`}
               >
                 <input type="file" accept=".ofx" onChange={handleFileChange} className="hidden" id="ofx-upload" />
                 <label htmlFor="ofx-upload" className="cursor-pointer flex flex-col items-center">
                   <Upload size={48} className={file ? 'text-[#1ABC9C]' : 'text-slate-300'} />
-                  <span className="mt-4 font-bold text-slate-700">
+                  <span className="mt-4 font-bold text-slate-300">
                     {file ? file.name : 'Clique para buscar o arquivo .OFX'}
                   </span>
                   <span className="text-xs text-slate-400 mt-1">Baixe o extrato OFX no app do seu banco</span>
@@ -132,9 +132,9 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
               </div>
               
               {preview.map((tx, idx) => (
-                <div key={idx} className="flex items-center justify-between p-4 border border-slate-100 rounded-2xl bg-white shadow-sm">
+                <div key={idx} className="flex items-center justify-between p-4 border border-[var(--border)] rounded-2xl bg-[var(--bg-card)] shadow-sm">
                   <div className="flex-1">
-                    <p className="font-bold text-slate-800 text-sm truncate max-w-[250px]">{tx.description}</p>
+                    <p className="font-bold text-slate-100 text-sm truncate max-w-[250px]">{tx.description}</p>
                     <p className="text-xs text-slate-400">
                       {new Date(tx.transactionDate).toLocaleDateString('pt-BR')} 
                       {tx.category ? ' • Categoria detectada' : ' • Sem categoria'}
@@ -152,7 +152,7 @@ export default function ImportModal({ isOpen, onClose }: ImportModalProps) {
         </div>
 
         {preview.length > 0 && (
-          <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+          <div className="p-6 bg-[var(--bg-surface)] border-t border-[var(--border)] flex gap-3">
             <button 
               onClick={() => setPreview([])} 
               className="flex-1 py-4 font-bold text-slate-500"

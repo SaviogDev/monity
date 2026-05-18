@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from 'sonner';
@@ -9,15 +9,19 @@ import {
   TrendingUp,
   Wallet,
   BrainCircuit,
-  CheckCircle2,
   Plus,
   X,
   Landmark,
-  CreditCard as CreditCardIcon,
   Loader2,
-  Repeat,
-  Split,
   ChevronRight,
+  ArrowUpRight,
+  ArrowDownRight,
+  LayoutDashboard,
+  Activity,
+  Target,
+  History,
+  ChevronDown,
+  type LucideIcon,
 } from 'lucide-react';
 import {
   CartesianGrid,
@@ -38,7 +42,9 @@ import { fetchCategories, type Category } from '@/services/categories';
 import { fetchAccounts, type Account } from '@/services/accounts';
 import { fetchCreditCards, type CreditCard } from '@/services/creditCards';
 import { fetchMe } from '@/services/auth';
+import type { TransactionPayload } from '@/services/transactions';
 
+// --- TYPES ---
 type TransactionType = 'income' | 'expense';
 type PaymentMethod = 'pix' | 'debit' | 'credit';
 type TransactionStatus = 'confirmed' | 'planned';
@@ -90,20 +96,23 @@ interface TransactionFormState {
   installments: string;
 }
 
-const containerVariants: Variants = {
+// --- ANIMATION VARIANTS ---
+const containerV: Variants = {
   hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } },
+  show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.1 } },
 };
 
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 15 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { type: 'spring', stiffness: 300, damping: 24 },
-  },
+const itemV: Variants = {
+  hidden: { opacity: 0, y: 15, scale: 0.98 },
+  show: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: { type: "spring", stiffness: 260, damping: 20 }
+  }
 };
 
+// --- UTILITIES ---
 function createInitialForm(): TransactionFormState {
   return {
     type: 'expense',
@@ -131,9 +140,17 @@ function roundMoney(value: number) {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-// CORREÇÃO APLICADA AQUI: Puxando o 'currentBalance' correto!
 function getAccountBalance(account: Account) {
-  return Number((account as any).currentBalance || (account as any).balance || 0);
+  const accountWithBalance = account as Account & {
+    currentBalance?: number;
+    balance?: number;
+  };
+
+  return Number(accountWithBalance.currentBalance || accountWithBalance.balance || 0);
+}
+
+function getTooltipCurrencyValue(value: unknown) {
+  return typeof value === 'number' ? value : Number(value || 0);
 }
 
 function parseISODateOnlyUTC(value: string) {
@@ -144,11 +161,7 @@ function parseISODateOnlyUTC(value: string) {
 
 function parseDateLikeUTC(value?: string | null) {
   if (!value) return null;
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return parseISODateOnlyUTC(value);
-  }
-
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return parseISODateOnlyUTC(value);
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date;
@@ -157,7 +170,6 @@ function parseDateLikeUTC(value?: string | null) {
 function formatDate(value?: string | null) {
   const date = parseDateLikeUTC(value);
   if (!date) return '---';
-
   return new Intl.DateTimeFormat('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -172,9 +184,7 @@ function formatISODateUTC(date: Date) {
 
 function getTodayISODateUTC() {
   const now = new Date();
-  return formatISODateUTC(
-    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0))
-  );
+  return formatISODateUTC(new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12, 0, 0)));
 }
 
 function getCurrentUTCDate() {
@@ -195,52 +205,26 @@ function getLastDayOfMonthUTC(year: number, monthIndex: number) {
 }
 
 function addDaysUTC(date: Date, days: number) {
-  return new Date(
-    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days, 12, 0, 0)
-  );
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days, 12, 0, 0));
 }
 
-function calculateCreditCardDueDate(
-  purchaseDateISO: string,
-  closingDay: number,
-  dueDay: number
-): string {
+function calculateCreditCardDueDate(purchaseDateISO: string, closingDay: number, dueDay: number): string {
   const purchaseDate = parseISODateOnlyUTC(purchaseDateISO);
   if (!purchaseDate) return purchaseDateISO;
-
   const purchaseYear = purchaseDate.getUTCFullYear();
   const purchaseMonth = purchaseDate.getUTCMonth();
   const purchaseDay = purchaseDate.getUTCDate();
-
   let dueMonth = purchaseMonth;
   let dueYear = purchaseYear;
-
-  if (purchaseDay > closingDay) {
-    dueMonth += 1;
-  }
-
-  if (dueDay <= closingDay) {
-    dueMonth += 1;
-  }
-
-  while (dueMonth > 11) {
-    dueMonth -= 12;
-    dueYear += 1;
-  }
-
+  if (purchaseDay > closingDay) dueMonth += 1;
+  if (dueDay <= closingDay) dueMonth += 1;
+  while (dueMonth > 11) { dueMonth -= 12; dueYear += 1; }
   const safeDueDay = Math.min(dueDay, getLastDayOfMonthUTC(dueYear, dueMonth));
   return formatISODateUTC(new Date(Date.UTC(dueYear, dueMonth, safeDueDay, 12, 0, 0)));
 }
 
 function getPaymentMethodLabel(method?: string | null) {
-  const map: Record<string, string> = {
-    pix: 'PIX',
-    debit: 'Débito',
-    credit: 'Crédito',
-    cash: 'Dinheiro',
-    transfer: 'Transferência',
-  };
-
+  const map: Record<string, string> = { pix: 'PIX', debit: 'Débito', credit: 'Crédito', cash: 'Dinheiro', transfer: 'Transferência' };
   return method ? map[method] || method : 'Outro';
 }
 
@@ -251,12 +235,12 @@ function getGreeting() {
   return 'Boa noite';
 }
 
-function BackgroundBlobs() {
+// --- DESIGN COMPONENTS ---
+function BackgroundDecorations() {
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-[#f4f8fb] pointer-events-none">
-      <div className="absolute -left-[15%] -top-[10%] h-[600px] w-[600px] rounded-full bg-[#2ECC71]/10 blur-[120px]" />
-      <div className="absolute -bottom-[10%] -right-[10%] h-[500px] w-[500px] rounded-full bg-[#3498DB]/10 blur-[120px]" />
-      <div className="absolute top-[40%] left-[50%] h-[300px] w-[300px] rounded-full bg-[#9B59B6]/10 blur-[100px]" />
+    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[var(--monity-green)] opacity-[0.03] blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-5%] right-[-5%] w-[35%] h-[35%] rounded-full bg-blue-500 opacity-[0.02] blur-[100px]" />
     </div>
   );
 }
@@ -265,66 +249,53 @@ function MetricCard({
   title,
   value,
   subtitle,
-  tone,
-  icon,
+  icon: Icon,
+  variant = "glass"
 }: {
   title: string;
-  value: string;
+  value: string | number;
   subtitle?: string;
-  tone: 'green' | 'red' | 'blue' | 'dark';
-  icon: ReactNode;
+  icon: LucideIcon;
+  variant?: "glass" | "green";
 }) {
-  const styles = {
-    green: {
-      box: 'bg-gradient-to-br from-[#2ECC71] to-[#27AE60] text-white shadow-xl shadow-[#2ECC71]/30 border-none',
-      icon: 'bg-white/20 text-white backdrop-blur-md',
-      value: 'text-white',
-      label: 'text-white/85',
-    },
-    red: {
-      box: 'bg-gradient-to-br from-[#FF3366] to-[#E74C3C] text-white shadow-xl shadow-[#FF3366]/30 border-none',
-      icon: 'bg-white/20 text-white backdrop-blur-md',
-      value: 'text-white',
-      label: 'text-white/85',
-    },
-    blue: {
-      box: 'bg-white/80 backdrop-blur-xl border border-white shadow-lg shadow-slate-200/50',
-      icon: 'bg-[#3498DB]/10 text-[#3498DB]',
-      value: 'text-[#34495E]',
-      label: 'text-slate-400',
-    },
-    dark: {
-      box: 'bg-gradient-to-br from-[#34495E] to-[#2C3E50] text-white shadow-xl shadow-[#34495E]/30 border-none',
-      icon: 'bg-white/10 text-white backdrop-blur-md',
-      value: 'text-white',
-      label: 'text-white/75',
-    },
-  }[tone];
+  if (variant === "green") {
+    return (
+      <motion.div
+        variants={itemV}
+        className="group relative overflow-hidden rounded-[2.5rem] bg-[var(--monity-green)] p-8 text-black shadow-[0_20px_50px_rgba(0,230,130,0.25)] transition-all hover:scale-[1.02]"
+      >
+        <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-black/5 blur-2xl" />
+        <div className="flex items-center gap-4 mb-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-black/10">
+            <Icon size={24} strokeWidth={2.5} />
+          </div>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] opacity-60">{title}</p>
+        </div>
+        <h3 className="font-syne text-5xl font-black tracking-tighter sm:text-6xl">{value}</h3>
+        {subtitle && <p className="mt-3 text-sm font-bold opacity-50">{subtitle}</p>}
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
-      variants={itemVariants}
-      className={`relative flex h-full flex-col justify-between overflow-hidden rounded-[1.75rem] p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl sm:rounded-[2rem] sm:p-6 ${styles.box}`}
+      variants={itemV}
+      className="group relative overflow-hidden rounded-[2.5rem] bg-[var(--bg-card)] p-8 border border-[var(--border)] transition-all hover:border-[var(--border-accent)] hover:bg-[var(--bg-card-hover)]"
     >
-      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/5 blur-2xl" />
-      
-      <div className="relative z-10">
-        <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-2xl ${styles.icon}`}>
-          {icon}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--monity-green)] opacity-[0.01] blur-[50px] -translate-y-1/2 translate-x-1/2 group-hover:opacity-[0.04] transition-opacity" />
+      <div className="flex items-center gap-4 mb-6">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border)] bg-white/5 group-hover:scale-110 transition-transform">
+          <Icon size={24} className="text-slate-400 group-hover:text-[var(--monity-green)]" />
         </div>
-        <p className={`mb-1 text-[10px] font-black uppercase tracking-[0.24em] ${styles.label}`}>
-          {title}
-        </p>
-        <p className={`truncate text-3xl font-black tracking-tighter sm:text-4xl ${styles.value}`}>
-          {value}
-        </p>
+        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">{title}</p>
       </div>
-
-      {subtitle ? <p className={`relative z-10 mt-4 text-xs font-bold ${styles.label}`}>{subtitle}</p> : null}
+      <h3 className="font-syne text-4xl font-black tracking-tight text-white">{value}</h3>
+      {subtitle && <p className="mt-2 text-sm font-medium text-slate-600">{subtitle}</p>}
     </motion.div>
   );
 }
 
+// --- MAIN PAGE ---
 export default function DashboardPage() {
   const { transactions = [], projection, loading, loadAll, createAndSync } = useFinancialStore();
 
@@ -338,30 +309,22 @@ export default function DashboardPage() {
   const [greeting, setGreeting] = useState('Olá');
   const [form, setForm] = useState<TransactionFormState>(createInitialForm);
 
-  const safeTransactions = useMemo(
-    () => (Array.isArray(transactions) ? (transactions as TransactionItem[]) : []),
-    [transactions]
-  );
+  const safeTransactions = useMemo(() => (Array.isArray(transactions) ? (transactions as TransactionItem[]) : []), [transactions]);
 
   const currentUTCDate = useMemo(() => getCurrentUTCDate(), []);
   const monthStart = useMemo(() => startOfMonthUTC(currentUTCDate), [currentUTCDate]);
   const monthEnd = useMemo(() => endOfMonthUTC(currentUTCDate), [currentUTCDate]);
   const next30Days = useMemo(() => addDaysUTC(currentUTCDate, 30), [currentUTCDate]);
 
-  const syncDashboardData = useCallback(
-    async (showErrorToast = false) => {
-      try {
-        await loadAll();
-        const accs = await fetchAccounts();
-        setAccounts(accs);
-      } catch {
-        if (showErrorToast) {
-          toast.error('Não foi possível sincronizar o dashboard.');
-        }
-      }
-    },
-    [loadAll]
-  );
+  const syncDashboardData = useCallback(async (showErrorToast = false) => {
+    try {
+      await loadAll();
+      const accs = await fetchAccounts();
+      setAccounts(accs);
+    } catch {
+      if (showErrorToast) toast.error('Não foi possível sincronizar o dashboard.');
+    }
+  }, [loadAll]);
 
   const loadInitialData = useCallback(async () => {
     try {
@@ -371,23 +334,12 @@ export default function DashboardPage() {
         fetchCreditCards({}),
         fetchMe().catch(() => null),
       ]);
-
       setCategories(cats);
       setAccounts(accs);
       setCreditCards(cards);
-
-      if (user?.name) {
-        setUserName(user.name.split(' ')[0]);
-      }
-
-      if (accs.length === 1) {
-        setForm((prev) => ({ ...prev, account: prev.account || accs[0]._id }));
-      }
-
-      if (cards.length === 1) {
-        setForm((prev) => ({ ...prev, creditCard: prev.creditCard || cards[0]._id }));
-      }
-
+      if (user?.name) setUserName(user.name.split(' ')[0]);
+      if (accs.length === 1) setForm((prev) => ({ ...prev, account: prev.account || accs[0]._id }));
+      if (cards.length === 1) setForm((prev) => ({ ...prev, creditCard: prev.creditCard || cards[0]._id }));
       await syncDashboardData(true);
     } catch {
       toast.error('Não foi possível carregar os dados do dashboard.');
@@ -400,19 +352,10 @@ export default function DashboardPage() {
   }, [loadInitialData]);
 
   useEffect(() => {
-    const handleWindowFocus = () => {
-      void syncDashboardData();
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        void syncDashboardData();
-      }
-    };
-
+    const handleWindowFocus = () => { void syncDashboardData(); };
+    const handleVisibilityChange = () => { if (document.visibilityState === 'visible') void syncDashboardData(); };
     window.addEventListener('focus', handleWindowFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
     return () => {
       window.removeEventListener('focus', handleWindowFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -422,43 +365,20 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadInsight() {
       try {
-        const reference = currentUTCDate;
-        const data = await fetchMonthlyInsight(reference.getUTCMonth() + 1, reference.getUTCFullYear());
+        const data = await fetchMonthlyInsight(currentUTCDate.getUTCMonth() + 1, currentUTCDate.getUTCFullYear());
         setInsight(data);
       } catch {
         setInsight(null);
       }
     }
-
-    if (safeTransactions.length > 0) {
-      void loadInsight();
-    } else {
-      setInsight(null);
-    }
+    if (safeTransactions.length > 0) void loadInsight();
+    else setInsight(null);
   }, [currentUTCDate, safeTransactions.length]);
 
-  const activeAccounts = useMemo(
-    () => accounts.filter((account) => account.isActive !== false),
-    [accounts]
-  );
-
-  const activeCreditCards = useMemo(
-    () => creditCards.filter((card) => card.isActive !== false),
-    [creditCards]
-  );
-
-  const accountsTotalBalance = useMemo(
-    () => activeAccounts.reduce((sum, account) => sum + getAccountBalance(account), 0),
-    [activeAccounts]
-  );
-
-  const currentBalanceBase = useMemo(
-    () =>
-      typeof projection?.currentBalance === 'number'
-        ? projection.currentBalance
-        : accountsTotalBalance,
-    [accountsTotalBalance, projection]
-  );
+  const activeAccounts = useMemo(() => accounts.filter((account) => account.isActive !== false), [accounts]);
+  const activeCreditCards = useMemo(() => creditCards.filter((card) => card.isActive !== false), [creditCards]);
+  const accountsTotalBalance = useMemo(() => activeAccounts.reduce((sum, account) => sum + getAccountBalance(account), 0), [activeAccounts]);
+  const currentBalanceBase = useMemo(() => typeof projection?.currentBalance === 'number' ? projection.currentBalance : accountsTotalBalance, [accountsTotalBalance, projection]);
 
   const sortedTransactions = useMemo(() => {
     return [...safeTransactions].sort((a, b) => {
@@ -472,264 +392,102 @@ export default function DashboardPage() {
     return sortedTransactions.filter((transaction) => {
       const date = parseDateLikeUTC(transaction.transactionDate || transaction.purchaseDate);
       if (!date) return false;
-      
       const time = date.getTime();
       return time >= monthStart.getTime() && time <= monthEnd.getTime();
     }).slice(0, 5);
   }, [sortedTransactions, monthStart, monthEnd]);
 
   const monthSummary = useMemo(() => {
-    let income = 0;
-    let expense = 0;
-
+    let income = 0; let expense = 0;
     for (const transaction of safeTransactions) {
       const date = parseDateLikeUTC(transaction.transactionDate || transaction.purchaseDate);
       if (!date) continue;
-
       const time = date.getTime();
       if (time < monthStart.getTime() || time > monthEnd.getTime()) continue;
-
       const amount = Number(transaction.amount || 0);
-      if (transaction.type === 'income') {
-        income += amount;
-      } else {
-        expense += amount;
-      }
+      if (transaction.type === 'income') income += amount;
+      else expense += amount;
     }
-
-    return {
-      income: roundMoney(income),
-      expense: roundMoney(expense),
-      balance: roundMoney(income - expense),
-    };
+    return { income: roundMoney(income), expense: roundMoney(expense), balance: roundMoney(income - expense) };
   }, [monthEnd, monthStart, safeTransactions]);
 
   const paymentMethodData = useMemo<PaymentMethodView[]>(() => {
     const totals = new Map<string, PaymentMethodView>();
-    const colors: Record<string, string> = {
-      pix: '#2ECC71',
-      debit: '#3498DB',
-      credit: '#9B59B6',
-      cash: '#F1C40F',
-      transfer: '#34495E',
-      other: '#95A5A6',
-    };
-
+    const colors: Record<string, string> = { pix: '#00E682', debit: '#3498DB', credit: '#9B59B6', cash: '#F1C40F', transfer: '#E67E22', other: '#95A5A6' };
     for (const transaction of safeTransactions) {
       if (transaction.type !== 'expense') continue;
-
       const date = parseDateLikeUTC(transaction.transactionDate || transaction.purchaseDate);
       if (!date) continue;
-
       const time = date.getTime();
       if (time < monthStart.getTime() || time > monthEnd.getTime()) continue;
-
       const key = transaction.paymentMethod || 'other';
       const current = totals.get(key);
-
-      if (current) {
-        current.amount += Number(transaction.amount || 0);
-        current.count += 1;
-      } else {
-        totals.set(key, {
-          name: getPaymentMethodLabel(key),
-          amount: Number(transaction.amount || 0),
-          count: 1,
-          color: colors[key] || colors.other,
-        });
-      }
+      if (current) { current.amount += Number(transaction.amount || 0); current.count += 1; }
+      else totals.set(key, { name: getPaymentMethodLabel(key), amount: Number(transaction.amount || 0), count: 1, color: colors[key] || colors.other });
     }
-
-    return Array.from(totals.values())
-      .map((item) => ({ ...item, amount: roundMoney(item.amount) }))
-      .sort((a, b) => b.amount - a.amount);
+    return Array.from(totals.values()).map((item) => ({ ...item, amount: roundMoney(item.amount) })).sort((a, b) => b.amount - a.amount);
   }, [monthEnd, monthStart, safeTransactions]);
 
   const projectionTimeline = useMemo<ProjectionPoint[]>(() => {
     const groups = new Map<string, { date: Date; entradas: number; saidas: number }>();
-
-    for (let index = 0; index <= 30; index += 1) {
-      const date = addDaysUTC(currentUTCDate, index);
-      groups.set(formatISODateUTC(date), { date, entradas: 0, saidas: 0 });
+    for (let i = 0; i <= 30; i++) {
+      const d = addDaysUTC(currentUTCDate, i);
+      groups.set(formatISODateUTC(d), { date: d, entradas: 0, saidas: 0 });
     }
-
-    for (const transaction of safeTransactions) {
-      const date = parseDateLikeUTC(transaction.transactionDate || transaction.purchaseDate);
-      if (!date) continue;
-
-      const normalized = new Date(
-        Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0)
-      );
-
-      const time = normalized.getTime();
-      if (time < currentUTCDate.getTime() || time > next30Days.getTime()) continue;
-
-      const key = formatISODateUTC(normalized);
+    for (const tx of safeTransactions) {
+      const dt = parseDateLikeUTC(tx.transactionDate || tx.purchaseDate);
+      if (!dt) continue;
+      const norm = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth(), dt.getUTCDate(), 12, 0, 0));
+      const t = norm.getTime();
+      if (t < currentUTCDate.getTime() || t > next30Days.getTime()) continue;
+      const key = formatISODateUTC(norm);
       const bucket = groups.get(key);
       if (!bucket) continue;
-
-      if (transaction.type === 'income') {
-        bucket.entradas += Number(transaction.amount || 0);
-      } else {
-        bucket.saidas += Number(transaction.amount || 0);
-      }
+      if (tx.type === 'income') bucket.entradas += Number(tx.amount || 0);
+      else bucket.saidas += Number(tx.amount || 0);
     }
-
-    return Array.from(groups.values())
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .reduce<ProjectionPoint[]>((accumulator, item, index) => {
-        const previousBalance = index === 0 ? currentBalanceBase : accumulator[index - 1].saldo;
-        const saldo = roundMoney(previousBalance + item.entradas - item.saidas);
-
-        accumulator.push({
-          date: item.date.toISOString(),
-          label: new Intl.DateTimeFormat('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            timeZone: 'UTC',
-          }).format(item.date),
-          saldo,
-          entradas: roundMoney(item.entradas),
-          saidas: roundMoney(item.saidas),
-        });
-
-        return accumulator;
-      }, []);
+    return Array.from(groups.values()).sort((a, b) => a.date.getTime() - b.date.getTime()).reduce<ProjectionPoint[]>((acc, item, i) => {
+      const prevBal = i === 0 ? currentBalanceBase : acc[i - 1].saldo;
+      const saldo = roundMoney(prevBal + item.entradas - item.saidas);
+      acc.push({ date: item.date.toISOString(), label: new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }).format(item.date), saldo, entradas: roundMoney(item.entradas), saidas: roundMoney(item.saidas) });
+      return acc;
+    }, []);
   }, [currentBalanceBase, currentUTCDate, next30Days, safeTransactions]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const description = form.description.trim();
-    const numericAmount = roundMoney(Number(form.amount));
-    const installmentCount = form.isInstallment ? Math.max(2, Number(form.installments) || 2) : 1;
-
-    if (!description) {
-      toast.error('Informe uma descrição.');
-      return;
-    }
-
-    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-      toast.error('Informe um valor válido maior que zero.');
-      return;
-    }
-
-    if (!form.category) {
-      toast.error('Selecione uma categoria.');
-      return;
-    }
-
-    if (form.paymentMethod === 'credit' && !form.creditCard) {
-      toast.error('Selecione um cartão de crédito.');
-      return;
-    }
-
-    if (form.paymentMethod !== 'credit' && !form.account) {
-      toast.error('Selecione uma conta.');
-      return;
-    }
-
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const desc = form.description.trim();
+    const amt = roundMoney(Number(form.amount));
+    const instCount = form.isInstallment ? Math.max(2, Number(form.installments) || 2) : 1;
+    if (!desc) { toast.error('Informe uma descrição.'); return; }
+    if (!Number.isFinite(amt) || amt <= 0) { toast.error('Informe um valor válido.'); return; }
+    if (!form.category) { toast.error('Selecione uma categoria.'); return; }
+    if (form.paymentMethod === 'credit' && !form.creditCard) { toast.error('Selecione um cartão.'); return; }
+    if (form.paymentMethod !== 'credit' && !form.account) { toast.error('Selecione uma conta.'); return; }
     setIsSubmitting(true);
-
     try {
-      let finalTransactionDate = form.date;
-
+      let txDate = form.date;
       if (form.paymentMethod === 'credit' && form.creditCard) {
-        const selectedCard = activeCreditCards.find((card) => card._id === form.creditCard);
-
-        if (selectedCard) {
-          finalTransactionDate = calculateCreditCardDueDate(
-            form.date,
-            Number(selectedCard.closingDay),
-            Number(selectedCard.dueDay)
-          );
-        }
+        const card = activeCreditCards.find((c) => c._id === form.creditCard);
+        if (card) txDate = calculateCreditCardDueDate(form.date, Number(card.closingDay), Number(card.dueDay));
       }
-
-      const installmentValue =
-        form.type === 'expense' && form.paymentMethod === 'credit' && form.isInstallment
-          ? roundMoney(numericAmount / installmentCount)
-          : numericAmount;
-
-      const payload: {
-        description: string;
-        type: TransactionType;
-        amount: number;
-        transactionDate: string;
-        purchaseDate: string;
-        category: string;
-        paymentMethod: PaymentMethod;
-        status: TransactionStatus;
-        account?: string;
-        creditCard?: string;
-        isRecurring?: boolean;
-        recurrenceRule?: {
-          type: TransactionType;
-          category: string;
-          frequency: 'monthly';
-          startDate: string;
-          value: number;
-        };
-        isInstallment?: boolean;
-        installmentIndex?: number;
-        installmentCount?: number;
-        installmentPlan?: {
-          totalAmount: number;
-          totalInstallments: number;
-          currentInstallment: number;
-          installmentAmount: number;
-          purchaseDate: string;
-        };
-      } = {
-        description,
-        type: form.type,
-        amount: numericAmount,
-        transactionDate: finalTransactionDate,
-        purchaseDate: form.date,
-        category: form.category,
-        paymentMethod: form.paymentMethod,
-        status: finalTransactionDate <= getTodayISODateUTC() ? 'confirmed' : 'planned',
-      };
-
-      if (form.paymentMethod === 'credit') {
-        payload.creditCard = form.creditCard;
-      } else {
-        payload.account = form.account;
-      }
-
+      const instVal = form.type === 'expense' && form.paymentMethod === 'credit' && form.isInstallment ? roundMoney(amt / instCount) : amt;
+      const payload: TransactionPayload = { description: desc, type: form.type, amount: amt, transactionDate: txDate, purchaseDate: form.date, category: form.category, paymentMethod: form.paymentMethod, status: txDate <= getTodayISODateUTC() ? 'confirmed' : 'planned' };
+      if (form.paymentMethod === 'credit') payload.creditCard = form.creditCard;
+      else payload.account = form.account;
       if (form.paymentMethod !== 'credit' && form.isRecurring) {
         payload.isRecurring = true;
-        payload.recurrenceRule = {
-          type: form.type,
-          category: form.category,
-          frequency: 'monthly',
-          startDate: finalTransactionDate,
-          value: numericAmount,
-        };
+        payload.recurrenceRule = { type: form.type, category: form.category, frequency: 'monthly', startDate: txDate, value: amt };
       }
-
       if (form.type === 'expense' && form.paymentMethod === 'credit' && form.isInstallment) {
         payload.isInstallment = true;
         payload.installmentIndex = 1;
-        payload.installmentCount = installmentCount;
-        payload.installmentPlan = {
-          totalAmount: numericAmount,
-          totalInstallments: installmentCount,
-          currentInstallment: 1,
-          installmentAmount: installmentValue,
-          purchaseDate: form.date,
-        };
+        payload.installmentCount = instCount;
+        payload.installmentPlan = { totalAmount: amt, totalInstallments: instCount, currentInstallment: 1, installmentAmount: instVal, purchaseDate: form.date };
       }
-
       await createAndSync(payload);
       await syncDashboardData();
-
-      toast.success(
-        finalTransactionDate !== form.date
-          ? 'Lançamento criado e competência da fatura recalculada.'
-          : 'Lançamento realizado com sucesso.'
-      );
-
+      toast.success('Lançamento realizado com sucesso.');
       setIsModalOpen(false);
       setForm(createInitialForm());
     } catch {
@@ -742,7 +500,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center">
-        <div className="h-14 w-14 animate-spin rounded-full border-4 border-[#2ECC71] border-t-transparent shadow-lg shadow-[#2ECC71]/20" />
+        <Loader2 className="h-12 w-12 animate-spin text-[var(--monity-green)]" />
       </div>
     );
   }
@@ -751,685 +509,413 @@ export default function DashboardPage() {
 
   return (
     <>
-      <BackgroundBlobs />
+      <BackgroundDecorations />
+      
       <motion.div
-        variants={containerVariants}
+        variants={containerV}
         initial="hidden"
         animate="show"
-        className="mx-auto max-w-7xl space-y-5 px-4 pb-32 pt-6 sm:space-y-8 sm:px-6 sm:pt-8 lg:px-8"
+        className="mx-auto max-w-[1600px] space-y-10 px-4 pb-32 pt-6 sm:px-6 lg:px-10"
       >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-black tracking-tighter text-[#34495E] sm:text-4xl">
-              {greetingText}
-            </h1>
-            <p className="mt-1.5 text-sm font-bold text-slate-500">
-              Aqui está o resumo financeiro da sua operação.
+        {/* HEADER */}
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--monity-green)] ml-1">Control Center</p>
+            <h1 className="font-syne text-5xl font-black tracking-tighter text-white sm:text-6xl">{greetingText}</h1>
+            <p className="text-sm font-medium text-slate-500 ml-1 flex items-center gap-2">
+              <Activity size={14} className="text-[var(--monity-green)]" />
+              Sua saúde financeira em tempo real.
             </p>
           </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="flex h-[3.5rem] items-center justify-center gap-3 rounded-[1.5rem] bg-[var(--monity-green)] px-8 font-black uppercase tracking-wider text-black transition-all hover:scale-[1.05] hover:shadow-[0_0_20px_rgba(0,230,130,0.3)] active:scale-[0.95]"
+          >
+            <Plus size={20} strokeWidth={3} />
+            Novo Lançamento
+          </button>
         </div>
 
-        <motion.div variants={containerVariants} className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-4">
-          <div className="col-span-2">
-            <MetricCard
-              title="Saldo disponível"
-              value={formatCurrency(accountsTotalBalance)}
-              subtitle="Somando todas as contas ativas"
-              tone="green"
-              icon={<Wallet size={24} />}
-            />
-          </div>
-
-          <MetricCard
-            title="Entradas"
-            value={formatCurrency(monthSummary.income)}
-            subtitle="Mês atual"
-            tone="blue"
-            icon={<TrendingUp size={24} />}
-          />
-
-          <MetricCard
-            title="Saídas"
-            value={formatCurrency(monthSummary.expense)}
-            subtitle="Mês atual"
-            tone="red"
-            icon={<TrendingDown size={24} />}
-          />
-        </motion.div>
-
-        <AnimatePresence>
-          {insight ? (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/70 p-5 shadow-sm backdrop-blur-xl sm:rounded-3xl sm:p-6"
-            >
-              <div className="flex items-start gap-4 sm:items-center">
-                <div
-                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
-                    insight.status === 'danger'
-                      ? 'bg-gradient-to-br from-rose-100 to-rose-50 text-[#FF3366] shadow-inner'
-                      : 'bg-gradient-to-br from-[#2ECC71]/20 to-[#2ECC71]/5 text-[#2ECC71] shadow-inner'
-                  }`}
-                >
-                  <BrainCircuit size={26} />
-                </div>
-
-                <div className="pt-1 sm:pt-0">
-                  <h3 className="text-base font-black tracking-tight text-[#34495E]">{insight.title}</h3>
-                  <p className="mt-1 text-sm font-bold leading-relaxed text-slate-500">
-                    {insight.message}
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
-
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3 lg:gap-6">
-          <div className="space-y-5 lg:col-span-2 lg:space-y-6">
-            <motion.div
-              variants={itemVariants}
-              className="rounded-[1.75rem] border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:rounded-[2rem] sm:p-8"
-            >
-              <div className="mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="text-xl font-black tracking-tight text-[#34495E]">Fluxo de caixa</h3>
-                  <p className="mt-1 text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">
-                    Próximos 30 dias
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white/50 px-4 py-2 text-xs font-black text-slate-500 shadow-sm ring-1 ring-slate-100">
-                  Base: {formatCurrency(currentBalanceBase)}
-                </div>
-              </div>
-
-              <div className="h-[220px] min-w-0 sm:h-[260px]">
-                {projectionTimeline.length === 0 ? (
-                  <div className="flex h-full items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white/30 text-slate-400">
-                    <p className="text-xs font-black uppercase tracking-[0.22em]">Sem dados projetados</p>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={projectionTimeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      <XAxis
-                        dataKey="label"
-                        stroke="#94a3b8"
-                        fontSize={11}
-                        fontWeight={700}
-                        tickLine={false}
-                        axisLine={false}
-                        dy={10}
-                      />
-                      <YAxis
-                        stroke="#94a3b8"
-                        fontSize={11}
-                        fontWeight={700}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(value) => `R$${value}`}
-                      />
-                      <Tooltip
-                        formatter={(value) => formatCurrency(Number(value))}
-                        cursor={{ stroke: '#cbd5e1', strokeWidth: 1, strokeDasharray: '4 4' }}
-                        contentStyle={{
-                          borderRadius: '16px',
-                          border: '1px solid rgba(255,255,255,0.2)',
-                          backgroundColor: 'rgba(52, 73, 94, 0.95)',
-                          backdropFilter: 'blur(8px)',
-                          color: '#fff',
-                          fontSize: '13px',
-                          fontWeight: 'bold',
-                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                        }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="saldo"
-                        stroke="#2ECC71"
-                        strokeWidth={4}
-                        dot={false}
-                        activeDot={{ r: 6, fill: '#2ECC71', strokeWidth: 2, stroke: '#fff' }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </motion.div>
-
-            <motion.div
-              variants={itemVariants}
-              className="overflow-hidden rounded-[1.75rem] border border-white/60 bg-white/80 shadow-sm backdrop-blur-xl sm:rounded-[2rem]"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100/50 p-5 sm:p-6 sm:px-8">
-                <div>
-                  <h3 className="text-xl font-black tracking-tight text-[#34495E]">Transações recentes</h3>
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                    Últimos lançamentos registrados
-                  </p>
-                </div>
-
-                <Link
-                  href="/dashboard/transacoes"
-                  className="group flex items-center gap-1 text-xs font-black uppercase tracking-[0.22em] text-[#3498DB] transition-colors hover:text-[#2980b9]"
-                >
-                  Ver todas
-                  <ChevronRight size={14} className="transition-transform group-hover:translate-x-1" />
-                </Link>
-              </div>
-
-              <div className="divide-y divide-slate-100/50">
-                {recentTransactions.length === 0 ? (
-                  <div className="p-12 text-center text-sm font-bold text-slate-400">
-                    Nenhuma transação recente no momento.
-                  </div>
-                ) : (
-                  recentTransactions.map((transaction) => {
-                    const isIncome = transaction.type === 'income';
-                    const destination = transaction.account?.name || transaction.creditCard?.name || 'Manual';
-
-                    return (
-                      <div
-                        key={transaction._id}
-                        className="flex items-center justify-between gap-4 p-4 px-5 transition-colors hover:bg-white/50 sm:p-5 sm:px-8"
-                      >
-                        <div className="flex min-w-0 items-center gap-4">
-                          <div
-                            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-sm ${
-                              isIncome ? 'bg-gradient-to-br from-emerald-50 to-emerald-100 text-[#2ECC71]' : 'bg-gradient-to-br from-rose-50 to-rose-100 text-[#FF3366]'
-                            }`}
-                          >
-                            {isIncome ? (
-                              <TrendingUp size={22} strokeWidth={2.5} />
-                            ) : (
-                              <TrendingDown size={22} strokeWidth={2.5} />
-                            )}
-                          </div>
-
-                          <div className="min-w-0">
-                            <p className="flex items-center gap-2 truncate text-sm font-black text-[#34495E] sm:text-base">
-                              <span className="truncate">{transaction.description}</span>
-                              {transaction.isInstallment ? (
-                                <span className="rounded-lg bg-[#3498DB]/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-[#3498DB]">
-                                  P {transaction.installmentIndex}/{transaction.installmentCount}
-                               </span>
-                              ) : null}
-                            </p>
-                            <p className="mt-1.5 truncate text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
-                              {transaction.category?.name || 'Geral'} • {destination} •{' '}
-                              {formatDate(transaction.transactionDate || transaction.purchaseDate)}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <p
-                            className={`text-sm font-black tracking-tight sm:text-base ${
-                              isIncome ? 'text-[#2ECC71]' : 'text-[#34495E]'
-                            }`}
-                          >
-                            {isIncome ? '+' : '-'} {formatCurrency(Number(transaction.amount || 0))}
-                          </p>
-                          <span
-                            className={`mt-1 inline-block rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-[0.16em] ${
-                              transaction.status === 'confirmed' ? 'bg-[#2ECC71]/10 text-[#2ECC71]' : 'bg-amber-100 text-amber-600'
-                            }`}
-                          >
-                            {transaction.status === 'confirmed' ? 'Liquidado' : 'Planejado'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </motion.div>
-          </div>
-
-          <div className="space-y-5 lg:space-y-6">
-            <motion.div
-              variants={itemVariants}
-              className="rounded-[1.75rem] border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:rounded-[2rem] sm:p-6"
-            >
-              <div className="mb-5">
-                <h3 className="text-xl font-black tracking-tight text-[#34495E]">Contas e cartões</h3>
-                <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                  Sua carteira digital
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {activeAccounts.slice(0, 3).map((account) => (
-                  <div
-                    key={account._id}
-                    className="flex items-center justify-between rounded-[1.25rem] border border-slate-100 bg-white/50 p-4 transition-all hover:bg-white"
-                  >
-                    <div className="flex min-w-0 items-center gap-3 pr-2">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#3498DB]/20 to-[#3498DB]/5 text-[#3498DB]">
-                        <Landmark size={18} strokeWidth={2.5} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black text-[#34495E]">{account.name}</p>
-                        <p className="mt-0.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                          Conta Bancária
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-sm font-black tracking-tight text-[#34495E]">
-                      {formatCurrency(getAccountBalance(account))}
-                    </p>
-                  </div>
-                ))}
-
-                {activeCreditCards.slice(0, 2).map((card) => (
-                  <div
-                    key={card._id}
-                    className="relative flex items-center justify-between overflow-hidden rounded-[1.25rem] bg-gradient-to-br from-slate-800 to-slate-900 p-4 text-white shadow-md transition-transform hover:scale-[1.02]"
-                  >
-                    <div className="absolute -right-4 -top-4 h-16 w-16 rounded-full bg-white/10 blur-xl" />
-                    <div className="relative z-10 flex min-w-0 items-center gap-3 pr-2">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white backdrop-blur-sm">
-                        <CreditCardIcon size={18} strokeWidth={2.5} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-black">{card.name}</p>
-                        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">
-                          Vencimento dia {card.dueDay}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                {activeAccounts.length === 0 && activeCreditCards.length === 0 ? (
-                  <div className="rounded-[1.25rem] border-2 border-dashed border-slate-200 bg-white/30 px-4 py-8 text-center text-sm font-bold text-slate-400">
-                    Cadastre suas contas e cartões para completar o painel.
-                  </div>
-                ) : null}
-              </div>
-            </motion.div>
-
-            <motion.div
-              variants={itemVariants}
-              className="flex flex-col rounded-[1.75rem] border border-white/60 bg-white/80 p-5 shadow-sm backdrop-blur-xl sm:rounded-[2rem] sm:p-6"
-            >
-              <h3 className="text-xl font-black tracking-tight text-[#34495E]">Despesas</h3>
-              <p className="mb-6 mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                Por meio de pagamento
-              </p>
-
-              <div className="flex flex-1 items-center justify-center">
-                {paymentMethodData.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <p className="text-sm font-bold text-slate-400">Sem despesas registradas.</p>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={200}>
-                    <RechartsPieChart>
-                      <Pie
-                        data={paymentMethodData}
-                        dataKey="amount"
-                        nameKey="name"
-                        innerRadius={55}
-                        outerRadius={80}
-                        paddingAngle={4}
-                        stroke="none"
-                        cornerRadius={4}
-                      >
-                        {paymentMethodData.map((entry) => (
-                          <Cell key={entry.name} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value) => formatCurrency(Number(value))}
-                        contentStyle={{
-                          borderRadius: '16px',
-                          border: 'none',
-                          backgroundColor: 'rgba(52, 73, 94, 0.95)',
-                          backdropFilter: 'blur(8px)',
-                          color: '#fff',
-                          fontSize: '12px',
-                          fontWeight: 'bold',
-                          boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                        }}
-                      />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-
-              {paymentMethodData.length > 0 ? (
-                <div className="mt-6 space-y-2">
-                  {paymentMethodData.map((item) => (
-                    <div key={item.name} className="flex items-center justify-between gap-3 rounded-xl bg-white/60 px-4 py-3 shadow-sm transition-colors hover:bg-white">
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="inline-block h-3 w-3 rounded-full shadow-sm"
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className="text-sm font-black text-[#34495E]">{item.name}</span>
-                      </div>
-                      <span className="text-xs font-black tracking-tight text-slate-500">
-                        {formatCurrency(item.amount)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </motion.div>
-          </div>
+        {/* MÉTRICAS PRINCIPAIS */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <MetricCard title="Saldo Consolidado" value={formatCurrency(currentBalanceBase)} subtitle="Contas Ativas" icon={Wallet} variant="green" />
+          <MetricCard title="Receitas Mensais" value={formatCurrency(monthSummary.income)} subtitle="Entradas neste mês" icon={TrendingUp} />
+          <MetricCard title="Despesas Mensais" value={formatCurrency(monthSummary.expense)} subtitle="Saídas neste mês" icon={TrendingDown} />
         </div>
-      </motion.div>
 
-      <div className="fixed bottom-6 right-4 z-50 sm:bottom-8 sm:right-8 lg:bottom-10 lg:right-10">
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="group flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-tr from-[#2ECC71] to-[#27AE60] text-white shadow-xl shadow-[#2ECC71]/40 transition-all hover:scale-110 active:scale-95 sm:h-16 sm:w-16"
-          aria-label="Adicionar lançamento"
-        >
-          <Plus size={30} strokeWidth={2.5} className="transition-transform group-hover:rotate-90" />
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {isModalOpen ? (
-          <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4">
-            <motion.button
-              type="button"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsModalOpen(false)}
-              className="absolute inset-0 bg-slate-900/50 backdrop-blur-md"
-              aria-label="Fechar modal"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, y: '100%' }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="relative max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-[2.5rem] bg-white p-6 shadow-2xl sm:rounded-[2.5rem] sm:p-8"
-            >
-              <div className="mb-8 flex items-center justify-between">
+        {/* GRID CENTRAL: GRÁFICO E TRANSAÇÕES RECENTES */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          {/* GRÁFICO DE PROJEÇÃO */}
+          <motion.div variants={itemV} className="xl:col-span-2 rounded-[2.5rem] border border-[var(--border)] bg-[var(--bg-card)] p-8 backdrop-blur-3xl">
+            <div className="flex items-center justify-between mb-10">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-500">
+                  <LayoutDashboard size={24} />
+                </div>
                 <div>
-                  <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[#3498DB]">
-                    Lançamento rápido
-                  </p>
-                  <h2 className="text-2xl font-black tracking-tight text-[#34495E]">Novo registro</h2>
+                  <h3 className="font-syne text-2xl font-black tracking-tight text-white">Fluxo de Caixa</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Próximos 30 dias</p>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="rounded-full bg-slate-100 p-2.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"
-                  aria-label="Fechar"
-                >
-                  <X size={20} strokeWidth={2.5} />
-                </button>
               </div>
-
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="flex rounded-[1.25rem] bg-slate-100/80 p-1.5 shadow-inner">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm((prev) => ({
-                        ...prev,
-                        type: 'expense',
-                      }))
-                    }
-                    className={`flex-1 rounded-xl py-3 text-xs font-black transition-all ${
-                      form.type === 'expense' ? 'bg-white text-[#FF3366] shadow-md' : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    Despesa
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm((prev) => ({
-                        ...prev,
-                        type: 'income',
-                        isInstallment: false,
-                        installments: '2',
-                      }))
-                    }
-                    className={`flex-1 rounded-xl py-3 text-xs font-black transition-all ${
-                      form.type === 'income' ? 'bg-white text-[#2ECC71] shadow-md' : 'text-slate-400 hover:text-slate-600'
-                    }`}
-                  >
-                    Receita
-                  </button>
+              <div className="hidden sm:flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-[var(--monity-green)]" />
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo Previsto</span>
                 </div>
+              </div>
+            </div>
 
-                <div className="space-y-4">
-                  <input
-                    type="text"
-                    required
-                    placeholder="O que foi?"
-                    value={form.description}
-                    onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                    className="w-full rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all placeholder:text-slate-400 focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
+            <div className="h-[350px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={projectionTimeline}>
+                  <defs>
+                    <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--monity-green)" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="var(--monity-green)" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.03)" strokeDasharray="4 4" />
+                  <XAxis 
+                    dataKey="label" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: 'rgba(255,255,255,0.3)', fontSize: 10, fontWeight: 900 }} 
+                    interval={Math.floor(projectionTimeline.length / 6)}
                   />
+                  <YAxis 
+                    hide 
+                    domain={['auto', 'auto']}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '1.25rem', padding: '15px' }}
+                    itemStyle={{ fontSize: '12px', fontWeight: 900, color: '#fff' }}
+                    labelStyle={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', fontWeight: 900, marginBottom: '8px' }}
+                    formatter={(val) => [formatCurrency(getTooltipCurrencyValue(val)), 'Saldo']}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="saldo" 
+                    stroke="var(--monity-green)" 
+                    strokeWidth={4} 
+                    dot={false} 
+                    activeDot={{ r: 6, stroke: 'var(--monity-green)', strokeWidth: 4, fill: '#000' }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
 
-                  <div className="relative">
-                    <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-xl font-black text-slate-400">
-                      R$
-                    </span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min="0.01"
-                      step="0.01"
-                      required
-                      placeholder="0,00"
-                      value={form.amount}
-                      onChange={(event) => setForm((prev) => ({ ...prev, amount: event.target.value }))}
-                      className="w-full rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 p-4 pl-14 text-3xl font-black tracking-tighter text-[#34495E] outline-none transition-all placeholder:text-slate-300 focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
-                    />
+          {/* TRANSAÇÕES RECENTES */}
+          <motion.div variants={itemV} className="rounded-[2.5rem] border border-[var(--border)] bg-[var(--bg-card)] p-8">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-500">
+                  <History size={24} />
+                </div>
+                <div>
+                  <h3 className="font-syne text-2xl font-black tracking-tight text-white">Recentes</h3>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Atividades do mês</p>
+                </div>
+              </div>
+              <Link href="/dashboard/transacoes" className="rounded-xl bg-white/5 p-3 text-slate-500 hover:text-white transition-all">
+                <ChevronRight size={20} />
+              </Link>
+            </div>
+
+            <div className="space-y-4">
+              {recentTransactions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <div className="h-16 w-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                    <Activity size={24} className="text-slate-700" />
                   </div>
+                  <p className="text-xs font-bold text-slate-600">Nenhuma transação recente registrada.</p>
+                </div>
+              ) : (
+                recentTransactions.map((tx) => (
+                  <div key={tx._id} className="group flex items-center gap-4 p-4 rounded-3xl border border-transparent hover:border-[var(--border)] hover:bg-white/[0.02] transition-all">
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+                      tx.type === 'income' ? 'bg-[var(--monity-green)]/10 text-[var(--monity-green)]' : 'bg-rose-500/10 text-rose-500'
+                    }`}>
+                      {tx.type === 'income' ? <ArrowUpRight size={20} /> : <ArrowDownRight size={20} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-bold text-white truncate">{tx.description}</h4>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-600 mt-0.5">
+                        {tx.category?.name || 'Sem categoria'} • {formatDate(tx.transactionDate || tx.purchaseDate)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-black ${tx.type === 'income' ? 'text-[var(--monity-green)]' : 'text-white'}`}>
+                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(tx.amount)}
+                      </p>
+                      {tx.status === 'planned' && (
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-600">Previsto</span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            
+            <Link href="/dashboard/transacoes" className="mt-8 flex w-full items-center justify-center py-4 rounded-2xl bg-white/5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-white hover:bg-white/10 transition-all">
+              Ver Todas as Transações
+            </Link>
+          </motion.div>
+        </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <select
-                      required
-                      value={form.category}
-                      onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
-                      className="w-full appearance-none rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
-                    >
-                      <option value="">Categoria</option>
-                      {categories
-                        .filter((category) => category.type === form.type)
-                        .map((category) => (
-                          <option key={category._id} value={category._id}>
-                            {category.name}
-                          </option>
-                        ))}
-                    </select>
-
-                    <input
-                      type="date"
-                      required
-                      value={form.date}
-                      onChange={(event) => setForm((prev) => ({ ...prev, date: event.target.value }))}
-                      className="w-full rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
-                    />
+        {/* CARDS AUXILIARES: CONTAS E MÉTODOS DE PAGAMENTO */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* MINHAS CONTAS */}
+          <motion.div variants={itemV} className="rounded-[2.5rem] border border-[var(--border)] bg-[var(--bg-card)] p-8">
+             <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-500">
+                    <Landmark size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-syne text-2xl font-black tracking-tight text-white">Minhas Contas</h3>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Saldos Disponíveis</p>
                   </div>
                 </div>
+                <Link href="/dashboard/contas" className="rounded-xl bg-white/5 p-3 text-slate-500 hover:text-white transition-all">
+                  <ChevronRight size={20} />
+                </Link>
+             </div>
 
-                <div className="space-y-4 rounded-[1.5rem] border border-slate-100 bg-white p-5 shadow-sm">
-                  <label className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
-                    Forma de pagamento
-                  </label>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+               {activeAccounts.slice(0, 4).map((acc) => (
+                 <div key={acc._id} className="flex flex-col p-6 rounded-3xl bg-[var(--bg-base)] border border-[var(--border)] hover:border-[var(--border-accent)] transition-all">
+                   <div className="flex items-center justify-between mb-4">
+                     <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-600">{acc.bankCode || 'Conta'}</span>
+                     <div className="h-2 w-2 rounded-full bg-[var(--monity-green)]" />
+                   </div>
+                   <h4 className="text-lg font-black text-white truncate mb-1">{acc.name}</h4>
+                   <p className="text-xl font-black text-[var(--monity-green)]">{formatCurrency(getAccountBalance(acc))}</p>
+                 </div>
+               ))}
+               {activeAccounts.length === 0 && (
+                  <div className="sm:col-span-2 py-10 text-center bg-white/[0.02] rounded-3xl border border-dashed border-[var(--border)]">
+                    <p className="text-xs font-bold text-slate-600">Nenhuma conta cadastrada.</p>
+                  </div>
+               )}
+             </div>
+          </motion.div>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    {([
-                      { value: 'pix', label: 'PIX' },
-                      { value: 'debit', label: 'Débito' },
-                      { value: 'credit', label: 'Crédito' },
-                    ] as const).map((method) => (
-                      <button
-                        key={method.value}
-                        type="button"
-                        onClick={() =>
-                          setForm((prev) => ({
-                            ...prev,
-                            paymentMethod: method.value,
-                            account: method.value === 'credit' ? '' : prev.account,
-                            creditCard: method.value === 'credit' ? prev.creditCard : '',
-                            isRecurring: method.value === 'credit' ? false : prev.isRecurring,
-                            isInstallment: method.value === 'credit' ? prev.isInstallment : false,
-                            installments: method.value === 'credit' ? prev.installments : '2',
-                          }))
-                        }
-                        className={`rounded-xl py-3 text-[11px] font-black uppercase tracking-wide transition-all ${
-                          form.paymentMethod === method.value
-                            ? 'bg-[#34495E] text-white shadow-md'
-                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                        }`}
-                      >
-                        {method.label}
-                      </button>
-                    ))}
+          {/* MÉTODOS DE PAGAMENTO */}
+          <motion.div variants={itemV} className="rounded-[2.5rem] border border-[var(--border)] bg-[var(--bg-card)] p-8">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-500">
+                <Target size={24} />
+              </div>
+              <div>
+                <h3 className="font-syne text-2xl font-black tracking-tight text-white">Distribuição</h3>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Gasto por Modalidade</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
+               <div className="h-[200px]">
+                 <ResponsiveContainer width="100%" height="100%">
+                   <RechartsPieChart>
+                     <Pie
+                        data={paymentMethodData}
+                        cx="50%" cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="amount"
+                     >
+                        {paymentMethodData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                        ))}
+                     </Pie>
+                     <Tooltip 
+                        contentStyle={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '1rem' }}
+                        itemStyle={{ fontSize: '10px', fontWeight: 900 }}
+                     />
+                   </RechartsPieChart>
+                 </ResponsiveContainer>
+               </div>
+
+               <div className="space-y-4">
+                 {paymentMethodData.map((item) => (
+                   <div key={item.name} className="flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                       <div className="h-3 w-3 rounded-full" style={{ backgroundColor: item.color }} />
+                       <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{item.name}</span>
+                     </div>
+                     <span className="text-xs font-black text-white">{formatCurrency(item.amount)}</span>
+                   </div>
+                 ))}
+                 {paymentMethodData.length === 0 && (
+                    <p className="text-center text-xs font-bold text-slate-600 py-10">Aguardando lançamentos...</p>
+                 )}
+               </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* INSIGHTS COM IA */}
+        {insight && (
+          <motion.div variants={itemV} className="rounded-[3rem] bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-transparent border border-indigo-500/20 p-8 sm:p-12 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-8 opacity-10">
+              <BrainCircuit size={120} />
+            </div>
+            <div className="relative z-10 flex flex-col md:flex-row items-center gap-8">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-[2rem] bg-white text-indigo-600 shadow-2xl">
+                <BrainCircuit size={40} />
+              </div>
+              <div className="flex-1 text-center md:text-left">
+                <div className="flex flex-col sm:flex-row items-center gap-3 mb-4 justify-center md:justify-start">
+                   <span className="rounded-full bg-indigo-500 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white">IA Financial Expert</span>
+                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Análise de Tendência Mensal</span>
+                </div>
+                <h3 className="font-syne text-3xl font-black tracking-tight text-white mb-4">Análise Estratégica</h3>
+                <div className="prose prose-invert max-w-none">
+                  <p className="text-slate-300 font-medium leading-relaxed text-lg">{insight.message}</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* MODAL: NOVO LANÇAMENTO */}
+        <AnimatePresence>
+          {isModalOpen && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+              <motion.div 
+                initial={{ y: 20, opacity: 0, scale: 0.95 }} 
+                animate={{ y: 0, opacity: 1, scale: 1 }} 
+                exit={{ y: 20, opacity: 0, scale: 0.95 }}
+                className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[3rem] border border-[var(--border)] bg-[var(--bg-card)] p-10 shadow-2xl custom-scrollbar"
+              >
+                <div className="mb-10 flex items-center justify-between">
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-[var(--monity-green)]">Quick Entry</p>
+                    <h2 className="text-3xl font-syne font-black tracking-tighter text-white">Registrar Lançamento</h2>
+                  </div>
+                  <button onClick={() => setIsModalOpen(false)} className="rounded-2xl bg-white/5 p-4 text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  {/* Tipo de Transação */}
+                  <div className="flex rounded-[2rem] bg-[var(--bg-base)] p-2 border border-[var(--border)] shadow-inner">
+                    <button
+                      type="button" onClick={() => setForm(p => ({ ...p, type: 'expense' }))}
+                      className={`flex-1 rounded-[1.5rem] py-4 text-xs font-black uppercase tracking-widest transition-all ${form.type === 'expense' ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
+                    >
+                      Despesa
+                    </button>
+                    <button
+                      type="button" onClick={() => setForm(p => ({ ...p, type: 'income' }))}
+                      className={`flex-1 rounded-[1.5rem] py-4 text-xs font-black uppercase tracking-widest transition-all ${form.type === 'income' ? 'bg-[var(--monity-green)] text-black shadow-lg' : 'text-slate-600 hover:text-slate-400'}`}
+                    >
+                      Receita
+                    </button>
                   </div>
 
-                  {form.paymentMethod === 'credit' ? (
-                    <div className="space-y-3 pt-2">
-                      <select
-                        required
-                        value={form.creditCard}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, creditCard: event.target.value }))
-                        }
-                        className="w-full appearance-none rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
-                      >
-                        <option value="">Selecione o Cartão</option>
-                        {activeCreditCards.map((card) => (
-                          <option key={card._id} value={card._id}>
-                            {card.name}
-                          </option>
-                        ))}
-                      </select>
-
-                      {form.type === 'expense' ? (
-                        <div className="rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5">
-                              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
-                                <Split size={16} className="text-[#3498DB]" />
-                              </div>
-                              <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
-                                Parcelar compra
-                              </span>
-                            </div>
-
-                            <label className="inline-flex cursor-pointer items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={form.isInstallment}
-                                onChange={(event) =>
-                                  setForm((prev) => ({
-                                    ...prev,
-                                    isInstallment: event.target.checked,
-                                    installments: event.target.checked ? prev.installments || '2' : '2',
-                                  }))
-                                }
-                                className="h-5 w-5 accent-[#3498DB]"
-                              />
-                            </label>
-                          </div>
-
-                          {form.isInstallment ? (
-                            <div className="mt-4 flex items-center justify-between rounded-xl bg-white px-4 py-3 shadow-sm border border-slate-100">
-                              <span className="text-xs font-bold text-slate-500">Qtd. de Parcelas</span>
-                              <input
-                                type="number"
-                                min="2"
-                                step="1"
-                                value={form.installments}
-                                onChange={(event) =>
-                                  setForm((prev) => ({ ...prev, installments: event.target.value }))
-                                }
-                                className="w-20 rounded-lg border-2 border-slate-100 bg-slate-50 px-3 py-2 text-center text-sm font-black text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white"
-                              />
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Descrição */}
+                    <div className="md:col-span-2">
+                      <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">O que você comprou/recebeu?</label>
+                      <input
+                        type="text" required value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                        placeholder="Ex: Supermercado, Aluguel..."
+                        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all"
+                      />
                     </div>
-                  ) : (
-                    <div className="space-y-3 pt-2">
-                      <select
-                        required
-                        value={form.account}
-                        onChange={(event) => setForm((prev) => ({ ...prev, account: event.target.value }))}
-                        className="w-full appearance-none rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
-                      >
-                        <option value="">Selecione a Conta</option>
-                        {activeAccounts.map((account) => (
-                          <option key={account._id} value={account._id}>
-                            {account.name}
-                          </option>
-                        ))}
-                      </select>
 
-                      <div className="rounded-[1.25rem] border border-slate-100 bg-slate-50 p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white shadow-sm">
-                              <Repeat size={16} className="text-[#2ECC71]" />
-                            </div>
-                            <span className="text-xs font-black uppercase tracking-[0.18em] text-[#34495E]">
-                              Recorrente mensal
-                            </span>
-                          </div>
-
-                          <label className="inline-flex cursor-pointer items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={form.isRecurring}
-                              onChange={(event) =>
-                                setForm((prev) => ({ ...prev, isRecurring: event.target.checked }))
-                              }
-                              className="h-5 w-5 accent-[#2ECC71]"
-                            />
-                          </label>
-                        </div>
-
-                        <p className="mt-3 text-xs font-bold leading-relaxed text-slate-400">
-                          Útil para salários, assinaturas, aluguel e contas fixas do mês.
-                        </p>
+                    {/* Valor */}
+                    <div>
+                      <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Valor do Registro</label>
+                      <div className="relative">
+                        <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-500 font-black">R$</span>
+                        <input
+                          type="number" step="0.01" required value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
+                          placeholder="0,00"
+                          className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] pl-14 pr-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all"
+                        />
                       </div>
                     </div>
-                  )}
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-[1.25rem] bg-gradient-to-tr from-[#2ECC71] to-[#27AE60] py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl shadow-[#2ECC71]/30 transition-all hover:-translate-y-0.5 hover:shadow-[#2ECC71]/40 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
-                >
-                  <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="animate-spin relative z-10" size={20} />
-                      <span className="relative z-10">Salvando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 size={20} className="relative z-10" />
-                      <span className="relative z-10">Confirmar lançamento</span>
-                    </>
-                  )}
-                </button>
-              </form>
-            </motion.div>
-          </div>
-        ) : null}
-      </AnimatePresence>
+                    {/* Data */}
+                    <div>
+                      <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Data da Operação</label>
+                      <input
+                        type="date" required value={form.date} onChange={e => setForm(p => ({ ...p, date: e.target.value }))}
+                        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all"
+                      />
+                    </div>
+
+                    {/* Categoria */}
+                    <div className="relative group">
+                      <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Categoria</label>
+                      <select
+                        value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
+                        className="w-full appearance-none rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all"
+                      >
+                        <option value="">Selecione...</option>
+                        {categories.filter(c => c.type === form.type).map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                      </select>
+                      <ChevronDown className="absolute right-6 top-[3.2rem] text-slate-700 pointer-events-none group-focus-within:text-[var(--monity-green)]" size={18} />
+                    </div>
+
+                    {/* Forma de Pagamento */}
+                    <div className="relative group">
+                      <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Forma de Pagamento</label>
+                      <select
+                        value={form.paymentMethod} onChange={e => setForm(p => ({ ...p, paymentMethod: e.target.value as PaymentMethod }))}
+                        className="w-full appearance-none rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all"
+                      >
+                        <option value="pix">PIX</option>
+                        <option value="debit">Débito</option>
+                        <option value="credit">Crédito (Cartão)</option>
+                        <option value="cash">Dinheiro</option>
+                      </select>
+                      <ChevronDown className="absolute right-6 top-[3.2rem] text-slate-700 pointer-events-none group-focus-within:text-[var(--monity-green)]" size={18} />
+                    </div>
+
+                    {/* Condicional: Conta ou Cartão */}
+                    {form.paymentMethod === 'credit' ? (
+                       <div className="md:col-span-2 relative group">
+                        <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Selecione o Cartão</label>
+                        <select
+                          value={form.creditCard} onChange={e => setForm(p => ({ ...p, creditCard: e.target.value }))}
+                          className="w-full appearance-none rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all"
+                        >
+                          <option value="">Escolha um cartão...</option>
+                          {activeCreditCards.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-6 top-[3.2rem] text-slate-700 pointer-events-none" size={18} />
+                      </div>
+                    ) : (
+                      <div className="md:col-span-2 relative group">
+                        <label className="mb-2 block text-[10px] font-black uppercase tracking-widest text-slate-500 ml-1">Selecione a Conta</label>
+                        <select
+                          value={form.account} onChange={e => setForm(p => ({ ...p, account: e.target.value }))}
+                          className="w-full appearance-none rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all"
+                        >
+                          <option value="">Escolha uma conta...</option>
+                          {activeAccounts.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
+                        </select>
+                        <ChevronDown className="absolute right-6 top-[3.2rem] text-slate-700 pointer-events-none" size={18} />
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit" disabled={isSubmitting}
+                    className="flex w-full items-center justify-center gap-3 rounded-[2rem] bg-[var(--monity-green)] py-6 text-sm font-black uppercase tracking-widest text-black shadow-[0_10px_30px_rgba(0,230,130,0.2)] transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                  >
+                    {isSubmitting ? <Loader2 className="animate-spin" size={24} /> : 'Finalizar Registro'}
+                  </button>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </>
   );
-} 
+}

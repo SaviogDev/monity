@@ -1,44 +1,43 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
+import hpp from 'hpp';
 import routes from './routes/index.js';
-import financialRoutes from './routes/financialRoutes.js';
-import invoiceRoutes from './routes/invoiceRoutes.js';
-import alertRoutes from './routes/alertRoutes.js';
-import financingRoutes from './routes/financingRoutes.js';
-import goalRoutes from './routes/goalRoutes.js';
-import authRoutes from './routes/authRoutes.js';
-
-// --- NOVAS IMPORTAÇÕES ---
-import transactionRoutes from './routes/transactionRoutes.js';
-import importRoutes from './routes/importRoutes.js';
-
 import notFound from './middlewares/notFound.js';
 import errorHandler from './middlewares/errorHandler.js';
-import { startCronJobs } from './cron/index.js'; 
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+const allowedOrigins = (
+  process.env.CORS_ORIGIN || 'http://localhost:3000,http://127.0.0.1:3000'
+)
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-// --- REGISTRO DE ROTAS ---
+app.set('trust proxy', 1);
+
+app.use(helmet());
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('Origem nao permitida pelo CORS'));
+    },
+  })
+);
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+app.use(mongoSanitize());
+app.use(hpp());
+
 app.use('/api', routes);
-app.use('/api/financial', financialRoutes);
-app.use('/api/invoices', invoiceRoutes);    
-app.use('/api/alerts', alertRoutes);
-app.use('/api/financings', financingRoutes);
-app.use('/api/goals', goalRoutes);
 
-// --- NOVAS ROTAS ---
-app.use('/api/transactions', transactionRoutes);
-app.use('/api/import', importRoutes);
-app.use('/api/auth', authRoutes);
-
-startCronJobs();
-
-// Os middlewares de erro devem sempre ser os últimos! (Já estava certinho)
 app.use(notFound);
 app.use(errorHandler);
-
 
 export default app;

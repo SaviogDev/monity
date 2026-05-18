@@ -2,6 +2,7 @@ import 'dotenv/config';
 import app from './app.js';
 import connectDB from './config/database.js';
 import validateEnv from './config/env.js';
+import { startCronJobs } from './cron/index.js';
 
 const PORT = process.env.PORT || 5000;
 
@@ -9,6 +10,7 @@ const startServer = async () => {
   validateEnv();
 
   await connectDB();
+  startCronJobs();
 
   app.listen(PORT, () => {
     console.log(`\n🚀 Monity API rodando`);

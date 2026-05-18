@@ -3,7 +3,10 @@ import User from '../models/User.js';
 import { Resend } from 'resend';
 
 // Inicializa o Resend. A chave virá do seu arquivo .env ou do servidor (Render/Railway)
-const resend = new Resend(process.env.RESEND_API_KEY);
+const getResendClient = () => {
+  if (!process.env.RESEND_API_KEY) return null;
+  return new Resend(process.env.RESEND_API_KEY);
+};
 
 export const register = async (req, res, next) => {
   try {
@@ -31,27 +34,32 @@ export const register = async (req, res, next) => {
     });
 
     // 4. ENVIO DO E-MAIL DE VERDADE COM RESEND
-    const { error } = await resend.emails.send({
-      from: 'Monity <onboarding@plataformamonity.com.br>',
-      to: email,
-      subject: 'Seu código de acesso ao Monity 🚀',
-      html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-          <h2 style="color: #2563eb;">Olá, ${name}! Bem-vindo(a) ao Monity.</h2>
-          <p>Você foi convidado(a) para acessar a nossa plataforma VIP.</p>
-          <p>Seu código de verificação é:</p>
-          <div style="background: #f4f4f5; padding: 15px 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-            <h1 style="letter-spacing: 5px; color: #2563eb; margin: 0;">${verificationCode}</h1>
-          </div>
-          <p>Este código é válido por 10 minutos.</p>
-          <p>Se você não solicitou este acesso, pode ignorar este e-mail em segurança.</p>
-        </div>
-      `,
-    });
+    const resend = getResendClient();
 
-    if (error) {
-      console.error('Erro ao enviar e-mail pelo Resend:', error);
-      // Mesmo se der erro no envio, não quebramos o app, mas o console avisa.
+    if (resend) {
+      const { error } = await resend.emails.send({
+        from: 'Monity <onboarding@plataformamonity.com.br>',
+        to: email,
+        subject: 'Seu código de acesso ao Monity 🚀',
+        html: `
+          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+            <h2 style="color: #2563eb;">Olá, ${name}! Bem-vindo(a) ao Monity.</h2>
+            <p>Você foi convidado(a) para acessar a nossa plataforma VIP.</p>
+            <p>Seu código de verificação é:</p>
+            <div style="background: #f4f4f5; padding: 15px 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+              <h1 style="letter-spacing: 5px; color: #2563eb; margin: 0;">${verificationCode}</h1>
+            </div>
+            <p>Este código é válido por 10 minutos.</p>
+            <p>Se você não solicitou este acesso, pode ignorar este e-mail em segurança.</p>
+          </div>
+        `,
+      });
+
+      if (error) {
+        console.error('Erro ao enviar e-mail pelo Resend:', error);
+      }
+    } else {
+      console.warn('RESEND_API_KEY ausente. E-mail de verificacao nao enviado.');
     }
 
     res.status(201).json({
@@ -108,6 +116,14 @@ export const updateAvatar = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Não autorizado. ID não encontrado.' });
     }
 
+    if (
+      typeof avatarUrl !== 'string' ||
+      avatarUrl.length > 2048 ||
+      !/^https:\/\/[^\s]+$/i.test(avatarUrl)
+    ) {
+      return res.status(400).json({ success: false, message: 'URL de avatar invalida.' });
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       userId, 
       { avatarUrl },
@@ -118,7 +134,18 @@ export const updateAvatar = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Usuário não encontrado' });
     }
 
-    res.status(200).json({ success: true, avatarUrl: updatedUser.avatarUrl });
+    res.status(200).json({
+      success: true,
+      avatarUrl: updatedUser.avatarUrl,
+      data: {
+        user: {
+          id: updatedUser._id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          avatarUrl: updatedUser.avatarUrl,
+        },
+      },
+    });
   } catch (error) {
     console.error('Erro ao atualizar avatar:', error);
     res.status(500).json({ success: false, message: 'Erro interno ao salvar a foto de perfil.' });
@@ -148,6 +175,7 @@ export const getMe = (req, res) => {
         id: req.user._id,
         name: req.user.name,
         email: req.user.email,
+        avatarUrl: req.user.avatarUrl,
         isVerified: req.user.isVerified,
       },
     },

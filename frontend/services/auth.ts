@@ -4,12 +4,14 @@ import {
   getToken as getStoredToken,
   setToken as setStoredToken,
 } from './api';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { storage } from './firebase';
 
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  avatarUrl?: string; 
+  avatarUrl?: string;
 }
 
 interface RawAuthUser {
@@ -38,6 +40,7 @@ interface MePayload {
 interface MeResponse {
   success: boolean;
   data?: MePayload | null;
+  avatarUrl?: string;
   message?: string;
 }
 
@@ -56,14 +59,14 @@ export interface LoginInput {
   password: string;
 }
 
-// ATUALIZADO: Adicionado o inviteCode obrigatório para o cadastro
 export interface RegisterInput extends LoginInput {
   name: string;
-  inviteCode: string; 
+  inviteCode: string;
 }
 
 export interface UpdateMeInput {
-  name: string;
+  name?: string;
+  email?: string;
 }
 
 export interface UpdatePasswordInput {
@@ -121,9 +124,6 @@ export async function register(payload: RegisterInput): Promise<AuthPayload> {
     user: normalizeUser(response.data?.user),
   };
 
-  // ATENÇÃO: Removido o 'setToken(data.token)' daqui. 
-  // O usuário agora precisa verificar o e-mail antes de ganhar o acesso!
-
   return data;
 }
 
@@ -144,22 +144,74 @@ export async function updateMe(payload: UpdateMeInput): Promise<AuthUser> {
   return normalizeUser(response.data?.user);
 }
 
+export const updateProfile = updateMe;
+
 export async function updatePassword(
-  payload: UpdatePasswordInput
+  currentPassword: string,
+  newPassword: string
 ): Promise<PasswordPayload> {
   const response = await apiJson<PasswordResponse>('/auth/password', {
     method: 'PUT',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ currentPassword, newPassword }),
   });
 
   return normalizePasswordPayload(response.data);
+}
+
+interface AvatarResponse {
+  success: boolean;
+  avatarUrl?: string;
+  data?: MePayload | null;
+  message?: string;
+}
+
+function validateAvatarFile(file: File) {
+  const maxSizeInBytes = 5 * 1024 * 1024;
+
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Envie uma imagem valida para o perfil.');
+  }
+
+  if (file.size > maxSizeInBytes) {
+    throw new Error('A imagem deve ter no maximo 5 MB.');
+  }
+}
+
+function getAvatarExtension(file: File) {
+  const extension = file.name.split('.').pop()?.toLowerCase();
+  return extension && /^[a-z0-9]+$/.test(extension) ? extension : 'jpg';
+}
+
+export async function uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+  validateAvatarFile(file);
+
+  const currentUser = await fetchMe();
+  const extension = getAvatarExtension(file);
+  const avatarRef = ref(storage, `avatars/${currentUser.id}/profile.${extension}`);
+
+  await uploadBytes(avatarRef, file, {
+    contentType: file.type,
+  });
+
+  const avatarUrl = await getDownloadURL(avatarRef);
+
+  const response = await apiJson<AvatarResponse>('/auth/avatar', {
+    method: 'PUT',
+    body: JSON.stringify({ avatarUrl }),
+  });
+
+  return {
+    avatarUrl:
+      response.avatarUrl ||
+      response.data?.user?.avatarUrl ||
+      avatarUrl,
+  };
 }
 
 export function logout() {
   clearToken();
 }
 
-// ATUALIZADO: Nova função para enviar o código do e-mail para o backend
 export async function verifyEmailCode(email: string, code: string) {
   const response = await apiJson('/auth/verify-email', {
     method: 'POST',

@@ -83,3 +83,19 @@ export const deleteCreditCard = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getCardTransactions = async (req, res, next) => {
+  try {
+    const transactions = await creditCardService.getTransactions({
+      userId: req.user._id,
+      creditCardId: req.params.id,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: transactions,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

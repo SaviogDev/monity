@@ -122,3 +122,28 @@ export async function createRecurringRule(payload: RecurringRulePayload) {
 
   return response.data;
 }
+
+export async function updateRecurringRule(id: string, payload: Partial<RecurringRulePayload>) {
+  const response = await apiJson<RecurringRuleResponse>(`/recurring-rules/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+
+  return response.data;
+}
+
+export async function deleteRecurringRule(id: string) {
+  const response = await apiJson<{ success: boolean; message: string }>(`/recurring-rules/${id}`, {
+    method: 'DELETE',
+  });
+
+  return response;
+}
+
+export async function syncRecurringRules() {
+  const response = await apiJson<{ success: boolean; data: any }>(`/recurring-rules/process`, {
+    method: 'POST',
+  });
+
+  return response.data;
+}

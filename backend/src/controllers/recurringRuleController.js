@@ -46,6 +46,38 @@ export const getRuleById = async (req, res, next) => {
   }
 };
 
+// Atualiza uma regra existente
+export const updateRule = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+    const rule = await recurringRuleService.updateRecurringRule(userId, id, req.body);
+    
+    res.status(200).json({
+      success: true,
+      data: rule,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Remove uma regra
+export const deleteRule = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+    const result = await recurringRuleService.deleteRecurringRule(userId, id);
+    
+    res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 /* =========================================================
    A CHAVE DE IGNIÇÃO DO MOTOR DE RECORRÊNCIA
 ========================================================= */
@@ -64,7 +96,10 @@ export const processRecurrences = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Motor de recorrência executado com sucesso.',
-      data: results,
+      data: {
+        ...results,
+        created: results.transactionsCreated
+      },
     });
   } catch (error) {
     console.error('[ENGINE] Erro fatal no motor de recorrência:', error);

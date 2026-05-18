@@ -8,6 +8,7 @@ export interface Category {
   color?: string;
   createdAt?: string;
   updatedAt?: string;
+  parent?: string | { _id: string; name: string; icon?: string; color?: string };
 }
 
 export interface CategoryFilters extends Record<string, unknown> {
@@ -21,6 +22,7 @@ export interface CategoryPayload {
   type: 'income' | 'expense';
   icon?: string;
   color?: string;
+  parent?: string | null;
 }
 
 interface CategoryListResponse {

@@ -20,8 +20,9 @@ export const getById = async (req, res, next) => {
 
 export const create = async (req, res, next) => {
   try {
-    const { name, type, icon, color } = req.body;
-    const category = await categoryService.create({ name, type, icon, color }, req.user._id);
+    // ADICIONADO: monthlyLimit para salvar o orçamento
+    const { name, type, icon, color, monthlyLimit, parent } = req.body;
+    const category = await categoryService.create({ name, type, icon, color, monthlyLimit, parent }, req.user._id);
     res.status(201).json({ success: true, message: 'Categoria criada com sucesso', data: category });
   } catch (err) {
     next(err);
@@ -30,8 +31,9 @@ export const create = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
-    const { name, type, icon, color } = req.body;
-    const category = await categoryService.update(req.params.id, { name, type, icon, color }, req.user._id);
+    // ADICIONADO: monthlyLimit para atualizar o orçamento
+    const { name, type, icon, color, monthlyLimit, parent } = req.body;
+    const category = await categoryService.update(req.params.id, { name, type, icon, color, monthlyLimit, parent }, req.user._id);
     res.status(200).json({ success: true, message: 'Categoria atualizada com sucesso', data: category });
   } catch (err) {
     next(err);
@@ -71,6 +73,22 @@ export const seedDefaults = async (req, res, next) => {
       success: true, 
       message: 'Categorias essenciais criadas com sucesso', 
       data: createdCategories 
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getBudgetSummary = async (req, res, next) => {
+  try {
+    const month = req.query.month ? parseInt(req.query.month) : new Date().getMonth() + 1;
+    const year = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
+
+    const summary = await categoryService.getBudgetSummary(req.user._id, month, year);
+
+    res.status(200).json({
+      success: true,
+      data: summary,
     });
   } catch (err) {
     next(err);

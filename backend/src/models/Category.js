@@ -27,6 +27,17 @@ const categorySchema = new mongoose.Schema(
       default: '#6366f1',
       match: [/^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/, 'Cor deve ser um hex válido (ex: #FF5733)'],
     },
+    monthlyLimit: {
+      type: Number,
+      min: [0, 'O limite mensal não pode ser negativo'],
+      default: 0,
+    },
+    parent: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+      default: null,
+      index: true,
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

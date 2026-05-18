@@ -1,32 +1,32 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ChangeEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { toast } from 'sonner';
-import {
-  Wallet,
-  Landmark,
-  PiggyBank,
-  Banknote,
-  Plus,
-  Pencil,
-  Trash2,
-  Search,
-  CheckCircle2,
-  X,
-  AlertTriangle,
-  Loader2,
-  TrendingUp,
+import { 
+  Wallet, 
+  Landmark, 
+  PiggyBank, 
+  Banknote, 
+  Plus, 
+  Pencil, 
+  Trash2, 
+  Search, 
+  CheckCircle2, 
+  X, 
+  AlertTriangle, 
+  Loader2, 
+  TrendingUp, 
   TrendingDown,
+  Activity,
+  CreditCard,
+  Target
 } from 'lucide-react';
 
-import {
-  createAccount,
-  updateAccount,
-  deleteAccount,
-} from '@/services/accounts';
+import { createAccount, updateAccount, deleteAccount } from '@/services/accounts';
 import { useFinancialStore } from '@/stores/financial-store';
 
+// --- TYPES ---
 type AccountType = 'checking' | 'wallet' | 'cash' | 'savings';
 
 type Account = {
@@ -56,7 +56,7 @@ const defaultForm: AccountFormData = {
   type: 'checking',
   initialBalance: '',
   bank: '',
-  color: '#3498DB',
+  color: '#00e682',
   isActive: true,
 };
 
@@ -67,6 +67,43 @@ const accountTypeLabels: Record<AccountType, string> = {
   savings: 'Poupança',
 };
 
+// --- ANIMATION VARIANTS (Standardized) ---
+const containerV: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.1
+    }
+  }
+};
+
+const itemV: Variants = {
+  hidden: { opacity: 0, y: 15, scale: 0.98 },
+  show: { 
+    opacity: 1, 
+    y: 0, 
+    scale: 1,
+    transition: { 
+      type: "spring",
+      stiffness: 260,
+      damping: 20
+    }
+  }
+};
+
+// --- DESIGN DECORATIONS (Standardized) ---
+function BackgroundDecorations() {
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[var(--monity-green)] opacity-[0.03] blur-[120px] animate-pulse" />
+      <div className="absolute bottom-[-5%] right-[-5%] w-[35%] h-[35%] rounded-full bg-blue-500 opacity-[0.02] blur-[100px]" />
+    </div>
+  );
+}
+
+// --- UTILITIES ---
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 }
@@ -88,63 +125,52 @@ function normalizeNumber(value: string) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.08 } }
-};
+// --- SHARED COMPONENTS ---
+function MetricCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  color = "green"
+}: {
+  title: string;
+  value: string;
+  subtitle?: string;
+  icon: any;
+  color?: "green" | "blue" | "purple" | "red" | "orange";
+}) {
+  const colorMap = {
+    green: "var(--monity-green)",
+    blue: "#3b82f6",
+    purple: "#a855f7",
+    red: "#ef4444",
+    orange: "#f97316"
+  };
 
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 320, damping: 26 } }
-};
-
-const INPUT_CLASS =
-  'w-full rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all placeholder:text-slate-400 focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10';
-
-const SELECT_CLASS =
-  'w-full appearance-none rounded-[1.25rem] border-2 border-slate-100 bg-slate-50/50 px-5 py-4 text-sm font-bold text-[#34495E] outline-none transition-all focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10';
-
-function BackgroundBlobs() {
-  return (
-    <div className="fixed inset-0 -z-10 overflow-hidden bg-[#f4f8fb] pointer-events-none">
-      <div className="absolute -left-[15%] -top-[10%] h-[600px] w-[600px] rounded-full bg-[#3498DB]/10 blur-[120px]" />
-      <div className="absolute -bottom-[10%] -right-[10%] h-[500px] w-[500px] rounded-full bg-[#2ECC71]/10 blur-[120px]" />
-      <div className="absolute top-[40%] left-[50%] h-[300px] w-[300px] rounded-full bg-[#9B59B6]/10 blur-[100px]" />
-    </div>
-  );
-}
-
-function MetricCard({ title, value, tone, icon }: { title: string; value: string; tone: 'blue' | 'green' | 'red' | 'dark'; icon: ReactNode }) {
-  const styles = {
-    blue: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg shadow-[#3498DB]/10',
-    green: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg shadow-[#2ECC71]/10',
-    red: 'bg-white/80 backdrop-blur-xl border border-white/60 shadow-lg shadow-[#FF3366]/10',
-    dark: 'bg-gradient-to-br from-[#34495E] to-[#2C3E50] text-white shadow-xl shadow-[#34495E]/30 border-none',
-  }[tone];
-
-  const iconStyles = {
-    blue: 'bg-[#3498DB]/10 text-[#3498DB]',
-    green: 'bg-[#2ECC71]/10 text-[#2ECC71]',
-    red: 'bg-rose-50 text-[#FF3366]',
-    dark: 'bg-white/10 text-white backdrop-blur-md',
-  }[tone];
-
-  const textStyles = tone === 'dark' ? 'text-white' : 'text-[#34495E]';
-  const labelStyles = tone === 'dark' ? 'text-white/70' : 'text-slate-400';
+  const activeColor = colorMap[color];
 
   return (
-    <motion.div variants={itemVariants} className={`flex flex-col justify-between rounded-[1.75rem] p-6 transition-all hover:-translate-y-1 sm:rounded-[2rem] relative overflow-hidden ${styles}`}>
-      {tone === 'dark' && <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/5 blur-2xl" />}
-      <div className={`relative z-10 mb-4 flex h-12 w-12 items-center justify-center rounded-[1.2rem] shadow-inner ${iconStyles}`}>
-        {icon}
+    <motion.div
+      variants={itemV}
+      className="group relative overflow-hidden rounded-[2rem] bg-[var(--bg-card)] p-7 border border-[var(--border)] transition-all hover:border-[var(--border-accent)]"
+    >
+      <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--monity-green)] opacity-[0.01] blur-[50px] -translate-y-1/2 translate-x-1/2 group-hover:opacity-[0.04] transition-opacity" />
+      
+      <div className="flex items-start justify-between mb-6">
+        <div 
+          className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border)] transition-all group-hover:scale-110"
+          style={{ backgroundColor: `${activeColor}10` }}
+        >
+          <Icon size={22} style={{ color: activeColor }} />
+        </div>
       </div>
-      <div className="relative z-10">
-        <p className={`mb-1 text-[10px] font-black uppercase tracking-[0.24em] ${labelStyles}`}>
-          {title}
-        </p>
-        <p className={`truncate text-2xl font-black tracking-tighter sm:text-3xl ${textStyles}`}>
-          {value}
-        </p>
+
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-1.5">{title}</p>
+        <h3 className="text-3xl font-black tracking-tight text-white">{value}</h3>
+        {subtitle && (
+          <p className="mt-2 text-xs font-medium text-slate-500">{subtitle}</p>
+        )}
       </div>
     </motion.div>
   );
@@ -184,7 +210,7 @@ export default function ContasPage() {
       type: account.type,
       initialBalance: String(account.initialBalance ?? 0),
       bank: account.bankCode || '',
-      color: account.color || '#3498DB',
+      color: account.color || '#00e682',
       isActive: account.isActive,
     });
     setFormError(null);
@@ -200,11 +226,9 @@ export default function ContasPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
     try {
       setSaving(true);
       setFormError(null);
-
       const payload = {
         name: form.name.trim(),
         type: form.type,
@@ -213,22 +237,18 @@ export default function ContasPage() {
         color: form.color,
         isActive: form.isActive,
       };
-
       if (!payload.name) throw new Error('Informe o nome da conta.');
-
       if (editingAccount?._id) {
         await updateAccount(editingAccount._id, payload);
-        toast.success('Conta atualizada com sucesso!');
+        toast.success('Conta atualizada!');
       } else {
         await createAccount(payload);
-        toast.success('Conta criada com sucesso!');
+        toast.success('Conta criada!');
       }
-
       await loadAll();
       closeModal();
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao salvar a conta.';
-      setFormError(errorMessage);
+    } catch (err: any) {
+      setFormError(err.message || 'Erro ao salvar a conta.');
     } finally {
       setSaving(false);
     }
@@ -240,9 +260,9 @@ export default function ContasPage() {
       setIsDeleting(true);
       await deleteAccount(deleteConfirm.id);
       await loadAll();
-      toast.success('Conta excluída com sucesso!');
+      toast.success('Conta excluída!');
       setDeleteConfirm(null);
-    } catch (err: unknown) {
+    } catch (err: any) {
       toast.error('Erro ao excluir a conta.');
     } finally {
       setIsDeleting(false);
@@ -255,7 +275,7 @@ export default function ContasPage() {
       await loadAll();
       toast.success(account.isActive ? 'Conta inativada' : 'Conta reativada');
     } catch (err) {
-      toast.error('Erro ao alterar status da conta.');
+      toast.error('Erro ao alterar status.');
     }
   }
 
@@ -279,202 +299,252 @@ export default function ContasPage() {
   if (loading) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center">
-        <div className="h-14 w-14 animate-spin rounded-full border-4 border-[#3498DB] border-t-transparent shadow-lg shadow-[#3498DB]/20" />
+        <Loader2 className="h-12 w-12 animate-spin text-[var(--monity-green)]" />
       </div>
     );
   }
 
   return (
     <>
-      <BackgroundBlobs />
-      <motion.div variants={containerVariants} initial="hidden" animate="show" className="mx-auto max-w-[1600px] space-y-6 px-4 pb-32 pt-4 sm:space-y-8 sm:px-6 sm:pt-6 lg:px-10">
-        
+      <BackgroundDecorations />
+      
+      <motion.div
+        variants={containerV}
+        initial="hidden"
+        animate="show"
+        className="mx-auto max-w-[1600px] space-y-8 px-4 pb-32 pt-6 sm:px-6 lg:px-10"
+      >
         {/* HEADER DA PÁGINA */}
-        <div className="flex flex-col gap-6 rounded-[2rem] border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur-xl sm:p-8 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.24em] text-[#3498DB]">
-              Controle de saldos
-            </p>
-            <h1 className="text-3xl font-black tracking-tighter text-[#34495E] sm:text-4xl">Contas Bancárias</h1>
-            <p className="mt-1.5 text-sm font-bold text-slate-500">Gerencie onde o seu dinheiro está guardado e alocado.</p>
+        <div className="flex flex-col gap-8 rounded-[2.5rem] border border-[var(--border)] bg-[var(--bg-card)] p-8 shadow-2xl backdrop-blur-3xl xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex items-center gap-6">
+            <div className="flex h-16 w-16 items-center justify-center rounded-[2rem] bg-[var(--monity-green)]/10 text-[var(--monity-green)] shadow-inner">
+              <Landmark size={32} strokeWidth={2.5} />
+            </div>
+            <div>
+              <p className="mb-1 text-[10px] font-black uppercase tracking-[0.3em] text-[var(--monity-green)]">Capital Management</p>
+              <h1 className="font-syne text-4xl font-extrabold tracking-tight text-white sm:text-5xl">Contas Bancárias</h1>
+              <p className="mt-1 text-sm font-medium text-slate-500">Onde o seu dinheiro está alocado e guardado.</p>
+            </div>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative w-full sm:w-72">
-              <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="relative w-full sm:w-80 group">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[var(--monity-green)] transition-colors" size={18} />
               <input 
-                type="text" placeholder="Buscar conta..." 
-                value={search} onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-[1.25rem] border-2 border-slate-100 bg-white/50 py-3.5 pl-12 pr-4 font-bold text-[#34495E] outline-none transition-all placeholder:text-slate-400 focus:border-[#3498DB]/40 focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10"
+                type="text" 
+                placeholder="Buscar conta..." 
+                value={search} 
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full rounded-[1.5rem] border border-[var(--border)] bg-[var(--bg-base)] px-12 py-4 text-sm font-bold text-white outline-none transition-all placeholder:text-slate-700 focus:border-[var(--monity-green)]/50"
               />
             </div>
-            <button onClick={openCreateModal} className="inline-flex w-full items-center justify-center gap-2 rounded-[1.25rem] bg-gradient-to-tr from-[#3498DB] to-[#2980b9] px-6 py-3.5 font-black text-white shadow-lg shadow-[#3498DB]/30 transition-all hover:-translate-y-0.5 hover:shadow-[#3498DB]/40 active:translate-y-0 active:scale-[0.98] sm:w-auto">
-              <Plus size={20} strokeWidth={3} className="transition-transform group-hover:rotate-90" /> Nova Conta
+            <button 
+              onClick={openCreateModal} 
+              className="flex h-[3.5rem] w-full sm:w-auto items-center justify-center gap-3 rounded-[1.5rem] bg-[var(--monity-green)] px-8 font-black uppercase tracking-wider text-black transition-all hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(0,230,130,0.3)] active:scale-[0.98]"
+            >
+              <Plus size={20} strokeWidth={3} />
+              Nova Conta
             </button>
           </div>
         </div>
 
         {/* MÉTRICAS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
-          <MetricCard title="Saldo Total" value={formatCurrency(summary.totalBalance)} tone="dark" icon={<Wallet size={24} />} />
-          <MetricCard title="Total de contas" value={String(summary.total)} tone="blue" icon={<Landmark size={24} />} />
-          <MetricCard title="Contas ativas" value={String(summary.active)} tone="green" icon={<CheckCircle2 size={24} />} />
-          <MetricCard title="Contas inativas" value={String(summary.inactive)} tone="red" icon={<AlertTriangle size={24} />} />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <MetricCard
+            title="Saldo Total"
+            value={formatCurrency(summary.totalBalance)}
+            subtitle="Soma de todos os saldos"
+            icon={Wallet}
+            color="green"
+          />
+          <MetricCard
+            title="Instituições"
+            value={String(summary.total)}
+            subtitle="Total de contas cadastradas"
+            icon={Landmark}
+            color="blue"
+          />
+          <MetricCard
+            title="Ativas"
+            value={String(summary.active)}
+            subtitle="Contas em uso regular"
+            icon={Activity}
+            color="purple"
+          />
+          <MetricCard
+            title="Inativas"
+            value={String(summary.inactive)}
+            subtitle="Contas pausadas ou encerradas"
+            icon={AlertTriangle}
+            color="red"
+          />
         </div>
 
-        {/* LISTAGEM DE CONTAS */}
-        <motion.div variants={itemVariants} className="overflow-hidden rounded-[2rem] border border-white/60 bg-white/80 shadow-sm backdrop-blur-xl sm:rounded-[2.5rem]">
-          <div className="flex flex-col gap-4 border-b border-slate-100/50 bg-white/40 p-6 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#3498DB]/10 text-[#3498DB] shadow-inner">
-                <Landmark size={24} />
-              </div>
-              <div>
-                <h3 className="text-xl font-black tracking-tight text-[#34495E]">Minhas carteiras</h3>
-                <p className="mt-1 text-sm font-bold text-slate-400">{filteredAccounts.length} conta(s) listada(s)</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <select value={typeFilter} onChange={(e: ChangeEvent<HTMLSelectElement>) => setTypeFilter(e.target.value as 'all' | AccountType)} className="cursor-pointer appearance-none rounded-xl border border-white/60 bg-white/60 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-slate-500 shadow-sm outline-none transition-all hover:bg-white focus:border-[#3498DB]/40 focus:ring-4 focus:ring-[#3498DB]/10">
-                <option value="all">Todos os Tipos</option>
-                <option value="checking">Conta Corrente</option>
-                <option value="wallet">Carteira</option>
-                <option value="cash">Dinheiro</option>
-                <option value="savings">Poupança</option>
-              </select>
-              <select value={statusFilter} onChange={(e: ChangeEvent<HTMLSelectElement>) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')} className="cursor-pointer appearance-none rounded-xl border border-white/60 bg-white/60 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-slate-500 shadow-sm outline-none transition-all hover:bg-white focus:border-[#3498DB]/40 focus:ring-4 focus:ring-[#3498DB]/10">
-                <option value="all">Todos os Status</option>
-                <option value="active">Ativas</option>
-                <option value="inactive">Inativas</option>
-              </select>
-            </div>
+        {/* CONTROLES DE FILTRO */}
+        <motion.div variants={itemV} className="flex flex-col gap-4 rounded-3xl border border-[var(--border)] bg-[var(--bg-card)]/30 p-4 sm:flex-row sm:items-center sm:justify-between px-6">
+          <div className="flex items-center gap-3">
+             <div className="h-2 w-2 rounded-full bg-[var(--monity-green)] shadow-[0_0_10px_rgba(0,230,130,0.5)]" />
+             <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+               {filteredAccounts.length} conta(s) filtrada(s)
+             </span>
           </div>
 
-          <div className="p-6 sm:p-8">
-            {filteredAccounts.length === 0 ? (
-              <div className="flex min-h-[300px] flex-col items-center justify-center text-center">
-                <Landmark className="mb-4 text-slate-300" size={52} />
-                <h4 className="text-xl font-black tracking-tight text-[#34495E]">Nenhuma conta encontrada.</h4>
-                <p className="mt-2 text-sm font-bold text-slate-400">Ajuste os filtros ou cadastre uma nova conta.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                <AnimatePresence>
-                  {filteredAccounts.map((account) => {
-                    const Icon = getAccountIcon(account.type);
-                    const accColor = account.color || '#3498DB';
-
-                    return (
-                      <motion.div 
-                        key={account._id} 
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="group relative flex h-full flex-col overflow-hidden rounded-[1.75rem] border border-white/80 bg-white/60 p-6 shadow-sm transition-all hover:-translate-y-1 hover:bg-white hover:shadow-xl sm:p-7"
-                      >
-                        {/* Efeito luminoso do cartão */}
-                        <div 
-                          className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-20 blur-3xl transition-opacity group-hover:opacity-40" 
-                          style={{ backgroundColor: accColor }} 
-                        />
-                        
-                        <div className="relative z-10 mb-6 flex items-start justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-[1rem] shadow-sm" style={{ backgroundColor: `${accColor}15`, color: accColor }}>
-                              <Icon size={24} strokeWidth={2.5} />
-                            </div>
-                            <div>
-                              <h4 className="text-lg font-black tracking-tight text-[#34495E]">{account.name}</h4>
-                              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">{accountTypeLabels[account.type]} {account.bankCode ? `• ${account.bankCode}` : ''}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-1 opacity-100 sm:opacity-0 transition-opacity sm:group-hover:opacity-100">
-                            <button onClick={() => openEditModal(account)} className="rounded-xl p-2 text-slate-300 transition-colors hover:bg-[#3498DB]/10 hover:text-[#3498DB]">
-                              <Pencil size={16} />
-                            </button>
-                            <button onClick={() => setDeleteConfirm({ id: account._id, name: account.name })} className="rounded-xl p-2 text-slate-300 transition-colors hover:bg-rose-50 hover:text-[#FF3366]">
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="relative z-10 mb-6">
-                          <p className="mb-1 text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Saldo Atual</p>
-                          <p className="text-3xl font-black tracking-tighter text-[#34495E]">{formatCurrency(account.currentBalance || 0)}</p>
-                        </div>
-
-                        <div className="relative z-10 mt-auto grid grid-cols-2 gap-3 border-t border-slate-100/50 pt-5">
-                          <div className="rounded-xl bg-slate-50/50 p-3">
-                            <div className="mb-1 flex items-center gap-1.5">
-                              <TrendingUp size={12} className="text-[#2ECC71]" />
-                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Entradas</p>
-                            </div>
-                            <p className="text-sm font-black text-[#2ECC71]">{formatCurrency(account.totalIncome || 0)}</p>
-                          </div>
-                          <div className="rounded-xl bg-slate-50/50 p-3">
-                            <div className="mb-1 flex items-center gap-1.5">
-                              <TrendingDown size={12} className="text-[#FF3366]" />
-                              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Saídas</p>
-                            </div>
-                            <p className="text-sm font-black text-[#FF3366]">{formatCurrency(account.totalExpense || 0)}</p>
-                          </div>
-                        </div>
-
-                        <div className="absolute bottom-6 right-6 z-20 sm:bottom-7 sm:right-7">
-                          <button 
-                            onClick={() => handleToggleStatus(account)} 
-                            className={`rounded-lg border px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.2em] transition-all ${
-                              account.isActive 
-                                ? 'border-[#2ECC71]/20 bg-[#2ECC71]/10 text-[#2ECC71] hover:bg-[#2ECC71]/20' 
-                                : 'border-slate-200 bg-slate-100 text-slate-500 hover:bg-slate-200'
-                            }`}
-                          >
-                            {account.isActive ? 'Ativa' : 'Inativa'}
-                          </button>
-                        </div>
-
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            )}
+          <div className="flex gap-3">
+            <select 
+              value={typeFilter} 
+              onChange={(e) => setTypeFilter(e.target.value as 'all' | AccountType)} 
+              className="rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 outline-none transition-all hover:border-[var(--monity-green)]/30 cursor-pointer"
+            >
+              <option value="all">Todos os Tipos</option>
+              <option value="checking">Conta Corrente</option>
+              <option value="wallet">Carteira</option>
+              <option value="cash">Dinheiro</option>
+              <option value="savings">Poupança</option>
+            </select>
+            <select 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'active' | 'inactive')} 
+              className="rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 outline-none transition-all hover:border-[var(--monity-green)]/30 cursor-pointer"
+            >
+              <option value="all">Todos os Status</option>
+              <option value="active">Ativas</option>
+              <option value="inactive">Inativas</option>
+            </select>
           </div>
         </motion.div>
 
-        {/* MODAL DE CRIAÇÃO/EDIÇÃO */}
+        {/* LISTAGEM */}
+        {filteredAccounts.length === 0 ? (
+          <div className="flex min-h-[400px] flex-col items-center justify-center rounded-[3rem] border-2 border-dashed border-[var(--border)] bg-[var(--bg-card)]/30 text-center p-10">
+            <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-[2.5rem] bg-white/5 text-slate-700">
+              <Landmark size={48} strokeWidth={1.5} />
+            </div>
+            <h4 className="text-2xl font-black tracking-tight text-white">Nenhuma conta encontrada</h4>
+            <p className="mt-2 text-slate-500 font-medium max-w-sm">Tente ajustar seus filtros ou crie uma nova conta bancária.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <AnimatePresence mode="popLayout">
+              {filteredAccounts.map((account) => {
+                const Icon = getAccountIcon(account.type);
+                const accColor = account.color || 'var(--monity-green)';
+
+                return (
+                  <motion.div 
+                    key={account._id} 
+                    layout
+                    variants={itemV}
+                    className={`group relative flex flex-col h-full overflow-hidden rounded-[2.5rem] bg-[var(--bg-card)] border border-[var(--border)] p-8 transition-all hover:border-[var(--border-accent)] hover:bg-[var(--bg-card-hover)] ${!account.isActive ? 'opacity-60' : ''}`}
+                  >
+                    {/* Glowing Accent */}
+                    <div className="absolute -right-12 -top-12 h-40 w-40 rounded-full blur-[80px] opacity-[0.03] transition-opacity group-hover:opacity-[0.08]" style={{ backgroundColor: accColor }} />
+                    
+                    <div className="relative z-10 mb-10 flex items-start justify-between">
+                      <div className="flex items-center gap-5">
+                        <div 
+                          className="flex h-14 w-14 items-center justify-center rounded-2xl shadow-inner transition-all group-hover:scale-110" 
+                          style={{ backgroundColor: `${accColor}10`, color: accColor }}
+                        >
+                          <Icon size={26} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                          <h4 className="text-xl font-black tracking-tighter text-white group-hover:text-[var(--monity-green)] transition-colors">{account.name}</h4>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{accountTypeLabels[account.type]}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                        <button onClick={() => openEditModal(account)} className="rounded-xl bg-white/[0.03] p-2.5 text-slate-500 transition-all hover:bg-white/[0.08] hover:text-white">
+                          <Pencil size={14} />
+                        </button>
+                        <button onClick={() => setDeleteConfirm({ id: account._id, name: account.name })} className="rounded-xl bg-rose-500/5 p-2.5 text-slate-600 transition-all hover:bg-rose-500 hover:text-white">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="relative z-10 mb-10">
+                      <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Saldo Disponível</p>
+                      <p className="text-4xl font-black tracking-tighter text-white leading-none">{formatCurrency(account.currentBalance || 0)}</p>
+                    </div>
+
+                    <div className="relative z-10 mt-auto grid grid-cols-2 gap-4 pt-8 border-t border-white/[0.05]">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp size={12} className="text-[var(--monity-green)]" />
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Receitas</p>
+                        </div>
+                        <p className="text-sm font-black text-[var(--monity-green)]">{formatCurrency(account.totalIncome || 0)}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <TrendingDown size={12} className="text-rose-500" />
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-600">Despesas</p>
+                        </div>
+                        <p className="text-sm font-black text-rose-500">{formatCurrency(account.totalExpense || 0)}</p>
+                      </div>
+                    </div>
+
+                    <div className="relative z-10 mt-8 flex items-center justify-between">
+                      <button 
+                        onClick={() => handleToggleStatus(account)} 
+                        className={`rounded-full px-4 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
+                          account.isActive 
+                            ? 'bg-[var(--monity-green)]/10 text-[var(--monity-green)] border border-[var(--monity-green)]/10' 
+                            : 'bg-white/5 text-slate-600 border border-white/5'
+                        }`}
+                      >
+                        {account.isActive ? 'Ativa' : 'Inativa'}
+                      </button>
+                      <div className="h-2 w-2 rounded-full shadow-[0_0_10px_rgba(255,255,255,0.1)]" style={{ backgroundColor: accColor }} />
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        )}
+
+        {/* Modal: Cadastro/Edição */}
         <AnimatePresence>
           {isModalOpen && (
-            <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeModal} className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" />
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closeModal} className="absolute inset-0 bg-black/80 backdrop-blur-md" />
               <motion.div 
-                initial={{ y: '100%', opacity: 0 }} 
-                animate={{ y: 0, opacity: 1 }} 
-                exit={{ y: '100%', opacity: 0 }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-y-auto rounded-t-[2.5rem] bg-white p-6 shadow-2xl sm:rounded-[2.5rem] sm:p-8"
+                initial={{ y: 20, opacity: 0, scale: 0.95 }} 
+                animate={{ y: 0, opacity: 1, scale: 1 }} 
+                exit={{ y: 20, opacity: 0, scale: 0.95 }}
+                className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[3rem] border border-[var(--border)] bg-[var(--bg-card)] p-8 shadow-2xl sm:p-12 custom-scrollbar"
               >
-                <div className="mb-8 flex items-center justify-between">
+                <div className="mb-10 flex items-center justify-between">
                   <div>
-                    <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[#3498DB]">Carteira</p>
-                    <h2 className="text-2xl font-black tracking-tight text-[#34495E]">{editingAccount ? 'Editar Conta' : 'Nova Conta'}</h2>
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--monity-green)]">Capital Source</p>
+                    <h2 className="font-syne text-4xl font-black tracking-tighter text-white">{editingAccount ? 'Editar Conta' : 'Nova Conta'}</h2>
                   </div>
-                  <button onClick={closeModal} className="rounded-full bg-slate-100 p-2.5 text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900"><X size={20} strokeWidth={2.5} /></button>
+                  <button onClick={closeModal} className="rounded-2xl bg-white/5 p-4 text-slate-500 hover:text-white transition-colors"><X size={20} /></button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
                     <div className="md:col-span-2">
-                      <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Nome da Conta</label>
-                      <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Nubank Principal" className={INPUT_CLASS} />
+                      <label className="mb-3 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 ml-1">Identificação da Conta</label>
+                      <input 
+                        type="text" required value={form.name} 
+                        onChange={(e) => setForm({ ...form, name: e.target.value })} 
+                        placeholder="Ex.: Nubank Principal, Santander Invest" 
+                        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all" 
+                      />
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Tipo de Conta</label>
-                      <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })} className={SELECT_CLASS}>
+                      <label className="mb-3 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 ml-1">Categoria de Conta</label>
+                      <select 
+                        value={form.type} 
+                        onChange={(e) => setForm({ ...form, type: e.target.value as AccountType })} 
+                        className="w-full appearance-none rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all cursor-pointer"
+                      >
                         <option value="checking">Conta Corrente</option>
                         <option value="wallet">Carteira Digital</option>
                         <option value="cash">Dinheiro Físico</option>
@@ -483,51 +553,50 @@ export default function ContasPage() {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Instituição / Banco (Opcional)</label>
-                      <input type="text" value={form.bank} onChange={(e) => setForm({ ...form, bank: e.target.value })} placeholder="Ex.: Itaú, Nu Pagamentos" className={INPUT_CLASS} />
+                      <label className="mb-3 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 ml-1">Instituição Financeira</label>
+                      <input 
+                        type="text" value={form.bank} 
+                        onChange={(e) => setForm({ ...form, bank: e.target.value })} 
+                        placeholder="Ex.: Itaú, XP" 
+                        className="w-full rounded-2xl border border-[var(--border)] bg-[var(--bg-base)] px-6 py-5 text-sm font-bold text-white outline-none focus:border-[var(--monity-green)]/30 transition-all" 
+                      />
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="mb-2 block text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Saldo Inicial</label>
+                      <label className="mb-3 block text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 ml-1">Capital Inicial</label>
                       <div className="relative">
-                        <span className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-xl font-black text-[#3498DB]">R$</span>
-                        <input type="number" step="0.01" required value={form.initialBalance} onChange={(e) => setForm({ ...form, initialBalance: e.target.value })} placeholder="0.00" className="w-full rounded-[1.25rem] border-2 border-[#3498DB]/30 bg-[#3498DB]/5 p-4 pl-14 text-3xl font-black tracking-tighter text-[#3498DB] outline-none transition-all placeholder:text-[#3498DB]/50 focus:border-[#3498DB] focus:bg-white focus:ring-4 focus:ring-[#3498DB]/10" />
+                        <span className="absolute left-6 top-1/2 -translate-y-1/2 font-syne text-2xl font-black text-[var(--monity-green)]">R$</span>
+                        <input 
+                          type="number" step="0.01" required value={form.initialBalance} 
+                          onChange={(e) => setForm({ ...form, initialBalance: e.target.value })} 
+                          placeholder="0,00" 
+                          className="w-full rounded-[2rem] border border-[var(--monity-green)]/10 bg-[var(--monity-green)]/5 p-10 pl-16 font-syne text-5xl font-black tracking-tighter text-[var(--monity-green)] outline-none placeholder:text-[var(--monity-green)]/10" 
+                        />
                       </div>
                     </div>
 
-                    <div className="md:col-span-2 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[1.5rem] border border-slate-100 bg-white p-5 shadow-sm mt-2">
-                      <div className="flex flex-1 items-center justify-between gap-4">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Cor de Identificação</label>
-                        <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-10 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0 outline-none" />
+                    <div className="md:col-span-2 flex items-center justify-between rounded-3xl border border-[var(--border)] bg-[var(--bg-base)] p-6">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Visual Identity</label>
+                        <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Cor de identificação no dashboard</p>
                       </div>
-                      
-                      <div className="hidden h-8 w-px bg-slate-100 sm:block" />
-                      
-                      <div className="flex flex-1 items-center justify-between gap-4">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Status da Conta</span>
-                        <button
-                          type="button"
-                          onClick={() => setForm({ ...form, isActive: !form.isActive })}
-                          className={`flex h-8 w-14 shrink-0 items-center rounded-full px-1 transition-all ${
-                            form.isActive ? 'bg-gradient-to-r from-[#2ECC71] to-[#27AE60] shadow-inner' : 'bg-slate-200 shadow-inner'
-                          }`}
-                        >
-                          <div className={`h-6 w-6 rounded-full bg-white shadow-md transition-transform ${form.isActive ? 'translate-x-6' : 'translate-x-0'}`} />
-                        </button>
-                      </div>
+                      <input type="color" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} className="h-12 w-20 cursor-pointer rounded-xl border-none bg-transparent p-0 outline-none" />
                     </div>
                   </div>
 
                   {formError && (
-                    <div className="flex items-center gap-3 rounded-[1.25rem] bg-rose-50 p-4 text-sm font-bold text-[#FF3366]">
+                    <div className="flex items-center gap-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-5 text-xs font-bold text-rose-500">
                       <AlertTriangle size={18} className="shrink-0" />
-                      {formError}
+                      <span className="uppercase tracking-widest">{formError}</span>
                     </div>
                   )}
 
-                  <button type="submit" disabled={saving} className="group relative mt-4 flex w-full items-center justify-center gap-2 overflow-hidden rounded-[1.25rem] bg-gradient-to-tr from-[#3498DB] to-[#2980b9] py-4 text-sm font-black uppercase tracking-wider text-white shadow-xl shadow-[#3498DB]/30 transition-all hover:-translate-y-0.5 hover:shadow-[#3498DB]/40 active:translate-y-0 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70">
-                    <div className="absolute inset-0 bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
-                    {saving ? <Loader2 className="animate-spin relative z-10" size={20} /> : <><CheckCircle2 size={20} className="relative z-10" /><span className="relative z-10">{editingAccount ? 'Salvar Alterações' : 'Cadastrar Conta'}</span></>}
+                  <button 
+                    type="submit" 
+                    disabled={saving} 
+                    className="flex w-full items-center justify-center gap-3 rounded-[1.5rem] bg-[var(--monity-green)] py-6 text-sm font-black uppercase tracking-widest text-black transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
+                  >
+                    {saving ? <Loader2 className="animate-spin" size={24} /> : <>{editingAccount ? 'Salvar Alterações' : 'Cadastrar Conta'}</>}
                   </button>
                 </form>
               </motion.div>
@@ -535,49 +604,44 @@ export default function ContasPage() {
           )}
         </AnimatePresence>
 
-        {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
+        {/* Modal: Exclusão */}
         <AnimatePresence>
-          {deleteConfirm ? (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          {deleteConfirm && (
+            <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDeleteConfirm(null)} className="absolute inset-0 bg-black/90 backdrop-blur-xl" />
               <motion.div
-                initial={{ opacity: 0, scale: 0.96, y: 12 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.96, y: 12 }}
-                className="w-full max-w-sm rounded-[2.5rem] bg-white p-8 text-center shadow-2xl"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="relative w-full max-w-md rounded-[3rem] border border-[var(--border)] bg-[var(--bg-card)] p-10 text-center shadow-2xl"
               >
-                <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-[#FF3366]">
-                  <AlertTriangle size={32} />
+                <div className="mx-auto mb-8 flex h-24 w-24 items-center justify-center rounded-[2.5rem] bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                  <AlertTriangle size={48} strokeWidth={1.5} />
                 </div>
-                <h3 className="mb-2 text-xl font-black tracking-tighter text-[#34495E]">
-                  Excluir conta?
-                </h3>
-                <p className="mb-2 text-sm font-black text-[#34495E]">{deleteConfirm.name}</p>
-                <p className="mb-8 text-xs font-bold leading-relaxed text-slate-400">
-                  Tem certeza? Esta ação removerá a conta. As transações vinculadas a ela podem ficar órfãs.
+                <h3 className="font-syne text-3xl font-black tracking-tighter text-white mb-2">Excluir Conta?</h3>
+                <p className="mb-10 text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
+                  Esta ação é irreversível. O saldo e as transações vinculadas à <span className="text-rose-500">{deleteConfirm.name}</span> serão afetados.
                 </p>
 
-                <div className="space-y-3">
+                <div className="flex flex-col gap-3">
                   <button
-                    type="button"
                     onClick={handleDeleteConfirm}
                     disabled={isDeleting}
-                    className="flex w-full items-center justify-center rounded-[1.25rem] bg-[#FF3366] py-4 font-black text-white shadow-lg shadow-[#FF3366]/20 transition-all hover:bg-[#e62e5c] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex w-full items-center justify-center rounded-2xl bg-rose-500 py-5 text-[10px] font-black uppercase tracking-widest text-white transition-all hover:bg-rose-600 active:scale-[0.98]"
                   >
-                    {isDeleting ? <Loader2 className="animate-spin" size={20} /> : 'Sim, excluir conta'}
+                    {isDeleting ? <Loader2 className="animate-spin" size={20} /> : 'Confirmar Exclusão'}
                   </button>
                   <button
-                    type="button"
                     onClick={() => setDeleteConfirm(null)}
-                    className="w-full rounded-[1.25rem] bg-slate-100 py-4 font-bold text-slate-500 transition-all hover:bg-slate-200"
+                    className="w-full rounded-2xl bg-white/5 py-5 text-[10px] font-black uppercase tracking-widest text-slate-500 transition-all hover:text-white"
                   >
                     Cancelar
                   </button>
                 </div>
               </motion.div>
             </div>
-          ) : null}
+          )}
         </AnimatePresence>
-
       </motion.div>
     </>
   );

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import CreditCard from '../models/CreditCard.js';
+import Transaction from '../models/Transaction.js'; // <-- ADICIONADO: Necessário para buscar a fatura
 
 const DEFAULT_CARD_COLOR = '#2563EB';
 
@@ -252,4 +253,22 @@ export const remove = async ({ userId, creditCardId }) => {
   return {
     message: 'Cartão excluído com sucesso',
   };
+};
+
+export const getTransactions = async ({ userId, creditCardId }) => {
+  const creditCard = await CreditCard.findOne({
+    _id: creditCardId,
+    user: userId,
+  });
+
+  if (!creditCard) {
+    throw createHttpError('Cartão não encontrado ou acesso negado', 404); 
+  }
+
+  const transactions = await Transaction.find({
+    creditCard: creditCardId,
+    user: userId,
+  }).sort({ date: -1 });
+
+  return transactions;
 };
